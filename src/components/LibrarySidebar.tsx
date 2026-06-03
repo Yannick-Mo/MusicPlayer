@@ -77,7 +77,8 @@ const LibrarySidebar: Component = () => {
         📚 我的歌单
       </div>
 
-      <div class="flex-1 overflow-y-auto min-h-0">
+      <style>{`.sidebar-scroll::-webkit-scrollbar{width:3px}.sidebar-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:2px}.sidebar-scroll{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.12) transparent}`}</style>
+      <div class="flex-1 overflow-y-auto min-h-0 sidebar-scroll pr-[4px]">
         {libraryStore.categories.map((cat) => {
           const count = cat.id === "all" ? libraryStore.songs.length : cat.songIds.length;
           const isActive = libraryStore.activeCategoryId === cat.id;
