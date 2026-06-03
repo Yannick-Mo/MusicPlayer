@@ -1,21 +1,24 @@
-import { createSignal, type Component } from "solid-js";
+import { createSignal, onMount, onCleanup, type Component } from "solid-js";
 import { playerStore, setPlayerStore } from "../store/playerStore";
 import { getPlatform } from "../platform/index";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import type { MigrationProgress } from "../platform/interface";
 
-type Tab = "playback" | "lyrics" | "visualizer" | "about";
+type Tab = "playback" | "lyrics" | "visualizer" | "storage" | "about";
 
 const labels: Record<Tab, string> = {
   playback: "播放",
   lyrics: "歌词",
   visualizer: "可视化",
+  storage: "存储",
   about: "关于",
 };
 
 const Settings: Component = () => {
   const [tab, setTab] = createSignal<Tab>("playback");
 
-  const tabs: Tab[] = ["playback", "lyrics", "visualizer", "about"];
+  const tabs: Tab[] = ["playback", "lyrics", "visualizer", "storage", "about"];
 
   const ColorPicker: Component<{ value: string; onChange: (c: string) => void; presets: string[] }> = (p) => (
     <div class="flex items-center gap-2.5">
@@ -49,6 +52,34 @@ const Settings: Component = () => {
       />
     </div>
   );
+
+  const [libraryPath, setLibraryPath] = createSignal("");
+  const [migrationProgress, setMigrationProgress] = createSignal<MigrationProgress | null>(null);
+
+  // Load initial path
+  getPlatform().then(platform => {
+    platform.getLibraryPath().then(setLibraryPath).catch(() => {});
+  });
+
+  // Listen for migration progress events
+  onMount(() => {
+    const unlistenPromise = listen<MigrationProgress>("migration-progress", (event) => {
+      const p = event.payload;
+      setMigrationProgress(p);
+      if (p.phase === "completed" || p.phase === "error" || p.phase === "cancelled") {
+        // Refresh library path after migration
+        setTimeout(() => {
+          getPlatform().then(platform => {
+            platform.getLibraryPath().then(setLibraryPath).catch(() => {});
+          });
+        }, 500);
+      }
+    });
+
+    onCleanup(() => {
+      unlistenPromise.then(fn => fn());
+    });
+  });
 
   return (
     <div class="h-full flex flex-col overflow-hidden">
@@ -294,6 +325,87 @@ const Settings: Component = () => {
         )}
 
 
+
+        {tab() === "storage" && (
+          <div>
+            <div class="flex items-center justify-between py-3 border-b" style="border-color: rgba(255,255,255,0.04);">
+              <div>
+                <div class="text-sm" style="color: rgba(255,255,255,0.9);">音乐库路径</div>
+                <div class="text-xs break-all mt-1 font-mono" style="color: rgba(255,255,255,0.6);">{libraryPath()}</div>
+              </div>
+            </div>
+
+            {!migrationProgress() && (
+              <div class="mt-4">
+                <button
+                  onClick={async () => {
+                    try {
+                      const { open } = await import("@tauri-apps/plugin-dialog");
+                      const selected = await open({
+                        multiple: false,
+                        directory: true,
+                      });
+                      if (selected && typeof selected === "string") {
+                        const platform = await getPlatform();
+                        await platform.startMigration(selected);
+                      }
+                    } catch (e) {
+                      console.error("Migration error:", e);
+                    }
+                  }}
+                  class="px-4 py-2 text-sm rounded transition-colors"
+                  style={{
+                    color: "rgba(255,255,255,0.9)",
+                    background: "rgba(var(--accent-rgb), 0.2)",
+                    border: "1px solid rgba(var(--accent-rgb), 0.3)",
+                  }}
+                >
+                  更换存储路径
+                </button>
+              </div>
+            )}
+
+            {migrationProgress() && (
+              <div class="mt-4 p-4 rounded-lg" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);">
+                {migrationProgress()!.phase === "counting" && (
+                  <div class="text-sm" style="color: rgba(255,255,255,0.7);">正在统计文件数量...</div>
+                )}
+                {migrationProgress()!.phase === "copying" && (
+                  <div>
+                    <div class="flex justify-between text-sm mb-2">
+                      <span style="color: rgba(255,255,255,0.7); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">正在复制: {migrationProgress()!.current_file}</span>
+                      <span style="color: rgba(255,255,255,0.5);">{migrationProgress()!.current} / {migrationProgress()!.total}</span>
+                    </div>
+                    <div class="w-full h-2 rounded-full overflow-hidden" style="background: rgba(255,255,255,0.08);">
+                      <div
+                        class="h-full rounded-full transition-all duration-300"
+                        style={{
+                          width: `${migrationProgress()!.total > 0 ? (migrationProgress()!.current / migrationProgress()!.total * 100) : 0}%`,
+                          background: "var(--accent-gradient)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {migrationProgress()!.phase === "completed" && (
+                  <div>
+                    <div class="text-sm" style="color: #22c55e;">迁移完成！</div>
+                    <div class="text-xs mt-1" style="color: rgba(255,255,255,0.5);">已迁移 {migrationProgress()!.current} 个文件</div>
+                  </div>
+                )}
+                {migrationProgress()!.phase === "error" && (
+                  <div>
+                    <div class="text-sm" style="color: #ef4444;">迁移失败</div>
+                    <div class="text-xs mt-1" style="color: #fca5a5;">{migrationProgress()!.error}</div>
+                  </div>
+                )}
+                {migrationProgress()!.phase === "cancelled" && (
+                  <div class="text-sm" style="color: #f59e0b;">迁移已取消</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {tab() === "about" && (
           <div class="flex flex-col items-center justify-center py-12 gap-3">
