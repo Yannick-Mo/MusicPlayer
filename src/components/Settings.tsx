@@ -3,6 +3,7 @@ import { playerStore, setPlayerStore } from "../store/playerStore";
 import { getPlatform } from "../platform/index";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { refreshLibraryData } from "../store/libraryStore";
 import type { MigrationProgress } from "../platform/interface";
 
 type Tab = "playback" | "lyrics" | "visualizer" | "storage" | "about";
@@ -66,13 +67,16 @@ const Settings: Component = () => {
     const unlistenPromise = listen<MigrationProgress>("migration-progress", (event) => {
       const p = event.payload;
       setMigrationProgress(p);
-      if (p.phase === "completed" || p.phase === "error" || p.phase === "cancelled") {
-        // Refresh library path after migration
-        setTimeout(() => {
-          getPlatform().then(platform => {
-            platform.getLibraryPath().then(setLibraryPath).catch(() => {});
-          });
-        }, 500);
+      if (p.phase === "completed") {
+        // Update to new path and reload library data immediately
+        getPlatform().then(platform => {
+          platform.getLibraryPath().then(setLibraryPath).catch(() => {});
+        });
+        refreshLibraryData();
+      } else if (p.phase === "error" || p.phase === "cancelled") {
+        getPlatform().then(platform => {
+          platform.getLibraryPath().then(setLibraryPath).catch(() => {});
+        });
       }
     });
 
