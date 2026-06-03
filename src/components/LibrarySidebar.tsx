@@ -143,6 +143,7 @@ const LibrarySidebar: Component = () => {
         </div>
       </div>
 
+      <style>{`.scm-item:hover{background:rgba(var(--accent-rgb,99,102,241),0.15)}`}</style>
       {ctxMenu() && (
         <div
           class="fixed z-50 rounded-lg py-1 min-w-[130px]"
@@ -156,7 +157,7 @@ const LibrarySidebar: Component = () => {
         >
           <div
             onClick={() => { setDeleteTarget(ctxMenu()!.catId); setCtxMenu(null); }}
-            class="px-3 py-2 text-xs cursor-pointer"
+            class="scm-item px-3 py-2 text-xs cursor-pointer rounded"
             style="color: rgba(255,255,255,0.6);"
           >🗑️ 删除歌单</div>
         </div>
