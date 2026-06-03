@@ -1,4 +1,4 @@
-import { onMount, onCleanup, type Component } from "solid-js";
+import { onMount, onCleanup, createEffect, type Component } from "solid-js";
 import * as THREE from "three";
 import { AudioEngine } from "../core/audioEngine";
 import { VisualizerData } from "../core/visualizerData";
@@ -91,41 +91,46 @@ const Visualizer3D: Component<Visualizer3DProps> = (props) => {
   }
 
   function animate() {
-    if (props.active) {
-      const raw = props.audioEngine.getAnalyserData();
-      const frame = props.visualizerData.process(raw, raw);
+    if (!props.active) return;
 
-      const half = GRID_SIZE / 2;
-      let idx = 0;
-      const freqLen = frame.frequencies.length;
+    const raw = props.audioEngine.getAnalyserData();
+    const frame = props.visualizerData.process(raw, raw);
 
-      for (let z = 0; z < GRID_SIZE; z++) {
-        for (let x = 0; x < GRID_SIZE; x++) {
-          const fi = Math.floor((x + z * GRID_SIZE) / PARTICLE_COUNT * freqLen) % freqLen;
-          const height = (frame.frequencies[fi] / 255) * 5;
+    const half = GRID_SIZE / 2;
+    let idx = 0;
+    const freqLen = frame.frequencies.length;
 
-          idx = (z * GRID_SIZE + x) * 3;
-          positions[idx + 1] *= 0.85;
-          positions[idx + 1] += height * 0.15;
+    for (let z = 0; z < GRID_SIZE; z++) {
+      for (let x = 0; x < GRID_SIZE; x++) {
+        const fi = Math.floor((x + z * GRID_SIZE) / PARTICLE_COUNT * freqLen) % freqLen;
+        const height = (frame.frequencies[fi] / 255) * 5;
 
-          const normalized = positions[idx + 1] / 5;
-          const r = 0.39 + normalized * 0.25;
-          const g = 0.4 + normalized * 0.2;
-          const b = 0.95 - normalized * 0.25;
-          colors[idx] = Math.min(1, r);
-          colors[idx + 1] = Math.min(1, g);
-          colors[idx + 2] = Math.min(1, b);
-        }
+        idx = (z * GRID_SIZE + x) * 3;
+        positions[idx + 1] *= 0.85;
+        positions[idx + 1] += height * 0.15;
+
+        const normalized = positions[idx + 1] / 5;
+        const r = 0.39 + normalized * 0.25;
+        const g = 0.4 + normalized * 0.2;
+        const b = 0.95 - normalized * 0.25;
+        colors[idx] = Math.min(1, r);
+        colors[idx + 1] = Math.min(1, g);
+        colors[idx + 2] = Math.min(1, b);
       }
-
-      geometry.attributes.position.needsUpdate = true;
-      geometry.attributes.color.needsUpdate = true;
-
-      rotationAngle += 0.002;
-      points.rotation.y = rotationAngle;
-
-      renderer.render(scene, camera);
     }
+
+    geometry.attributes.position.needsUpdate = true;
+    geometry.attributes.color.needsUpdate = true;
+
+    rotationAngle += 0.002;
+    points.rotation.y = rotationAngle;
+
+    renderer.render(scene, camera);
+    rafId = requestAnimationFrame(animate);
+  }
+
+  function startAnimation() {
+    if (rafId !== null) cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(animate);
   }
 
@@ -145,6 +150,10 @@ const Visualizer3D: Component<Visualizer3DProps> = (props) => {
         containerRef.removeChild(renderer.domElement);
       }
     });
+  });
+
+  createEffect(() => {
+    if (props.active) startAnimation();
   });
 
   return <div ref={containerRef} class="absolute inset-0 w-full h-full pointer-events-none" style={{ display: props.active ? "" : "none" }} />;

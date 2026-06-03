@@ -17,9 +17,11 @@ import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { libraryStore, loadLibraryData } from "../store/libraryStore";
 import { getPlatform } from "../platform/index";
-import { listen } from "@tauri-apps/api/event";
-
-const playerStateLoaded = loadPlayerState();
+import { registerCommand } from "../core/commandBus";
+import { useAccentColor } from "../hooks/useAccentColor";
+import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
+import { useTrayEvents } from "../hooks/useTrayEvents";
+import { useSleepTimer } from "../hooks/useSleepTimer";
 
 const ORIGINAL_MIN_W = 900;
 const ORIGINAL_MIN_H = 600;
@@ -46,37 +48,7 @@ const App: Component = () => {
     if (!savedOnce) { savedOnce = true; return; }
     savePlayerState();
   });
-  createEffect(() => {
-    const c = playerStore.accentColor;
-    const r = parseInt(c.slice(1, 3), 16);
-    const g = parseInt(c.slice(3, 5), 16);
-    const b = parseInt(c.slice(5, 7), 16);
-    const lr = Math.round(r + (255 - r) * 0.35);
-    const lg = Math.round(g + (255 - g) * 0.35);
-    const lb = Math.round(b + (255 - b) * 0.35);
-    const light = `#${lr.toString(16).padStart(2, "0")}${lg.toString(16).padStart(2, "0")}${lb.toString(16).padStart(2, "0")}`;
-    const dr = Math.round(r * 0.6);
-    const dg = Math.round(g * 0.6);
-    const db = Math.round(b * 0.6);
-    const dark = `#${dr.toString(16).padStart(2, "0")}${dg.toString(16).padStart(2, "0")}${db.toString(16).padStart(2, "0")}`;
-
-    let styleEl = document.getElementById("accent-style");
-    if (!styleEl) {
-      styleEl = document.createElement("style");
-      styleEl.id = "accent-style";
-      document.head.appendChild(styleEl);
-    }
-    styleEl.textContent = `
-      :root {
-        --accent: ${c};
-        --accent-rgb: ${r}, ${g}, ${b};
-        --accent-light: ${light};
-        --accent-dark: ${dark};
-        --accent-gradient: linear-gradient(135deg, ${c}, ${light});
-        accent-color: ${c};
-      }
-    `;
-  });
+  useAccentColor();
   const engine = new AudioEngine();
   const lsync = new LyricsSync();
   const vdata = new VisualizerData();
@@ -206,7 +178,7 @@ const App: Component = () => {
     }
   }
 
-  (window as any).__requestPlay = async () => {
+  async function requestPlay() {
     if (playerStore.queue.length === 0) {
       setPlayerStore("error", "播放队列为空");
       return;
@@ -232,21 +204,22 @@ const App: Component = () => {
         if (ok) await engine.play();
       }
     }
-  };
+  }
+  registerCommand("requestPlay", requestPlay);
 
-  (window as any).__playSong = playSong;
-  (window as any).__playAt = async (index: number) => {
+  registerCommand("playSong", playSong);
+  registerCommand("playAt", async (index: number) => {
     const song = playerStore.queue[index];
     if (!song) return;
     setPlayerStore("queueIndex", index);
     const ok = await loadSong(song.id, song.title, song.artist);
     savePlayerState();
     if (ok) await engine.play();
-  };
-  (window as any).__playNext = playNext;
-  (window as any).__playPrev = playPrev;
-  (window as any).__replaceQueueAndPlay = replaceQueueAndPlay;
-  (window as any).__clearQueue = () => {
+  });
+  registerCommand("playNext", playNext);
+  registerCommand("playPrev", playPrev);
+  registerCommand("replaceQueueAndPlay", replaceQueueAndPlay);
+  registerCommand("clearQueue", () => {
     setPlayerStore("queue", []);
     setPlayerStore("queueIndex", -1);
     setPlayerStore("currentSongId", null);
@@ -256,11 +229,11 @@ const App: Component = () => {
     engine.pause();
     savePlayerState();
     showToast("播放队列已清空");
-  };
+  });
 
   const appWindow = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window ? getCurrentWindow() : null;
 
-  (window as any).__toggleMiniMode = async () => {
+  async function toggleMiniMode() {
     const next = !miniMode();
     setPlaylistOpen(false);
 
@@ -291,17 +264,18 @@ const App: Component = () => {
     }
 
     setMiniMode(next);
-  };
+  }
+  registerCommand("toggleMiniMode", toggleMiniMode);
 
-  (window as any).__removeFromQueue = (index: number) => {
+  registerCommand("removeFromQueue", (index: number) => {
     const qi = playerStore.queueIndex;
     removeFromQueue(index);
     if (index === qi) {
       engine.reset();
     }
-  };
+  });
 
-  (window as any).__handleSongDeleted = (songId: number) => {
+  registerCommand("handleSongDeleted", (songId: number) => {
     const q = playerStore.queue;
     const curIdx = playerStore.queueIndex;
     const removedBefore = q.filter((s, i) => s.id === songId && i < curIdx).length;
@@ -341,9 +315,14 @@ const App: Component = () => {
       }
       savePlayerState();
     }
-  };
+  });
+
+  useKeyboardShortcuts(engine, requestPlay, toggleMiniMode, currentView, setCurrentView, miniMode);
+  useTrayEvents(requestPlay, playNext, playPrev);
+  useSleepTimer(engine);
 
   onMount(() => {
+    loadPlayerState();
     engine.on("onTimeUpdate", (time) => {
       setPlayerStore("currentTime", time);
       setPlayerStore("lastTime", time);
@@ -358,78 +337,6 @@ const App: Component = () => {
     });
     engine.on("onEnded", () => playNext());
     engine.setVolume(playerStore.volume);
-
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && miniMode()) {
-        (window as any).__toggleMiniMode();
-        return;
-      }
-      if (currentView() !== "player") return;
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      switch (e.key) {
-        case " ":
-          e.preventDefault();
-          {
-            const fn = (window as any).__requestPlay;
-            if (fn) fn();
-          }
-          break;
-        case "ArrowLeft":
-          e.preventDefault();
-          engine.seek(Math.max(0, engine.currentTime - 5));
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          engine.seek(Math.min(engine.duration, engine.currentTime + 5));
-          break;
-        case "ArrowUp":
-          e.preventDefault();
-          setPlayerStore("volume", Math.min(100, playerStore.volume + 10));
-          engine.setVolume(playerStore.volume);
-          break;
-        case "ArrowDown":
-          e.preventDefault();
-          setPlayerStore("volume", Math.max(0, playerStore.volume - 10));
-          engine.setVolume(playerStore.volume);
-          break;
-        case "l":
-          if (e.ctrlKey) { e.preventDefault(); setCurrentView("library"); }
-          break;
-        case ",":
-          if (e.ctrlKey) { e.preventDefault(); setCurrentView("settings"); }
-          break;
-      }
-    };
-
-    window.addEventListener("keydown", handler);
-
-    const preventContext = (e: MouseEvent) => e.preventDefault();
-    const preventF12 = (e: KeyboardEvent) => { if (e.key === "F12") e.preventDefault(); };
-    document.addEventListener("contextmenu", preventContext);
-    document.addEventListener("keydown", preventF12);
-
-    const unlistenPlayPause = listen("tray-play-pause", () => { const fn = (window as any).__requestPlay; if (fn) fn(); });
-    const unlistenNext = listen("tray-next", () => playNext());
-    const unlistenPrev = listen("tray-prev", () => playPrev());
-    const unlistenToggleVis = listen("tray-toggle-visualizer", () => {
-      setPlayerStore("visualizerMode", playerStore.visualizerMode === "2d" ? "3d" : playerStore.visualizerMode === "3d" ? "off" : "2d");
-    });
-    const unlistenTogglePlaymode = listen("tray-toggle-playmode", () => {
-      const next = { sequential: "repeat" as const, repeat: "shuffle" as const, shuffle: "sequential" as const };
-      setPlayerStore("playMode", next[playerStore.playMode]);
-    });
-    const unlistenToggleLyrics = listen("tray-toggle-lyrics", () => {
-      setPlayerStore("showTranslation", !playerStore.showTranslation);
-    });
-
-    const sleepTimerCheck = setInterval(() => {
-      const end = playerStore.sleepTimerEnd;
-      if (end !== null && Date.now() >= end) {
-        engine.pause();
-        setPlayerStore("sleepTimerEnd", null);
-        showToast("睡眠定时器已到，播放已暂停");
-      }
-    }, 1000);
 
     if (playerStore.queue.length === 0) {
       setPlayerStore("error", "播放队列为空");
@@ -455,17 +362,7 @@ const App: Component = () => {
     });
 
     onCleanup(() => {
-      window.removeEventListener("keydown", handler);
-      document.removeEventListener("contextmenu", preventContext);
-      document.removeEventListener("keydown", preventF12);
       engine.destroy();
-      unlistenPlayPause.then((fn) => fn());
-      unlistenNext.then((fn) => fn());
-      unlistenPrev.then((fn) => fn());
-      unlistenToggleVis.then((fn) => fn());
-      unlistenTogglePlaymode.then((fn) => fn());
-      unlistenToggleLyrics.then((fn) => fn());
-      clearInterval(sleepTimerCheck);
     });
   });
 
@@ -474,7 +371,7 @@ const App: Component = () => {
       {miniMode() ? (
         <MiniPlayer
           audioEngine={engine}
-          onExpand={() => { (window as any).__toggleMiniMode(); }}
+          onExpand={() => toggleMiniMode()}
         />
       ) : (
         <div class="h-screen w-screen flex flex-col bg-bg relative overflow-hidden">

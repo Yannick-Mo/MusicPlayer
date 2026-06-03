@@ -1,5 +1,6 @@
 import { createStore } from "solid-js/store";
 import type { SyncState } from "../core/lyricsSync";
+import { formatTime } from "../core/utils";
 
 export interface QueueItem {
   id: number;
@@ -189,8 +190,4 @@ export function removeFromQueue(index: number) {
   savePlayerState();
 }
 
-export const formatTime = (s: number): string => {
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${sec.toString().padStart(2, "0")}`;
-};
+export { formatTime };

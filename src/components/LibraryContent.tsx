@@ -1,43 +1,17 @@
-import { createSignal, createMemo, createResource, onMount, onCleanup, type Component } from "solid-js";
+import { createSignal, createMemo, onMount, onCleanup, type Component } from "solid-js";
 import { libraryStore, setLibraryStore, addSongFromImport, removeSongFromStore, refreshLibraryData, type Song } from "../store/libraryStore";
 import { addToPlayNext } from "../store/playerStore";
+import { executeCommand } from "../core/commandBus";
 import { getPlatform } from "../platform";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import type { SongFileInfo } from "../platform/interface";
+import SongRow from "./library/SongRow";
+import { ContextMenu } from "./library/ContextMenu";
+import { Pagination } from "./library/Pagination";
+import { BatchBar } from "./library/BatchBar";
 
 interface LibraryContentProps {
   onPlay: (id: number, title: string, artist: string) => void;
 }
-
-const covers = [
-  "linear-gradient(135deg, #6366f1, #8b5cf6)",
-  "linear-gradient(135deg, #f59e0b, #ef4444)",
-  "linear-gradient(135deg, #06b6d4, #3b82f6)",
-  "linear-gradient(135deg, #a855f7, #d946ef)",
-  "linear-gradient(135deg, #22c55e, #10b981)",
-  "linear-gradient(135deg, #f472b6, #ec4899)",
-];
-
-const CoverCell: Component<{ song: Song; refreshKey: number }> = (p) => {
-  const [coverPath] = createResource(() => p.song.hasCover ? `${p.song.id}-${p.refreshKey}` : undefined, async (key) => {
-    const id = parseInt(key);
-    if (isNaN(id)) return undefined;
-    try {
-      const platform = await getPlatform();
-      const path = await platform.getCoverPath(id);
-      return convertFileSrc(path);
-    } catch { return undefined; }
-  });
-  return (
-    <>
-      {coverPath() ? (
-        <img src={coverPath()!} class="w-[36px] h-[36px] rounded flex-shrink-0 object-cover" alt="" />
-      ) : (
-        <div class="w-[36px] h-[36px] rounded flex-shrink-0" style={{ background: covers[p.song.id % covers.length] }} />
-      )}
-    </>
-  );
-};
 
 const LibraryContent: Component<LibraryContentProps> = (props) => {
   const [page, setPage] = createSignal(1);
@@ -45,7 +19,6 @@ const LibraryContent: Component<LibraryContentProps> = (props) => {
   const [selectedSongId, setSelectedSongId] = createSignal<number | null>(null);
   const [menuSongId, setMenuSongId] = createSignal<number | null>(null);
   const [menuPos, setMenuPos] = createSignal<{ x: number; y: number } | null>(null);
-  const [playlistSubSongId, setPlaylistSubSongId] = createSignal<number | null>(null);
   const [batchMode, setBatchMode] = createSignal(false);
   const [selectedIds, setSelectedIds] = createSignal<Set<number>>(new Set());
   const [batchAddOpen, setBatchAddOpen] = createSignal(false);
@@ -76,7 +49,7 @@ const LibraryContent: Component<LibraryContentProps> = (props) => {
   });
 
   let menuRef: HTMLDivElement | undefined;
-  const closeMenu = () => { setMenuSongId(null); setMenuPos(null); setPlaylistSubSongId(null); };
+  const closeMenu = () => { setMenuSongId(null); setMenuPos(null); };
   const onDocClick = (e: MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest('[data-menu-trigger]')) return;
@@ -115,7 +88,7 @@ const LibraryContent: Component<LibraryContentProps> = (props) => {
       console.error("后端删除失败:", err);
     }
     await removeSongFromStore(songId);
-    (window as any).__handleSongDeleted?.(songId);
+    executeCommand("handleSongDeleted", songId);
   }
 
   const filteredSongs = () => {
@@ -218,8 +191,7 @@ const LibraryContent: Component<LibraryContentProps> = (props) => {
         const meta: SongFileInfo = await platform.importSong(selected);
         await addSongFromImport(meta);
         setPage(totalPages());
-        const fn = (window as any).__playSong;
-        if (fn) fn(meta.id, meta.title, meta.artist);
+        executeCommand("playSong", meta.id, meta.title, meta.artist);
       } else {
         const input = document.createElement("input");
         input.type = "file";
@@ -242,8 +214,7 @@ const LibraryContent: Component<LibraryContentProps> = (props) => {
           setLibraryStore("songs", [...libraryStore.songs, newSong]);
           setLibraryStore("categories", 0, "songIds", [...libraryStore.categories[0].songIds, newSong.id]);
           setPage(totalPages());
-          const fn = (window as any).__playSong;
-          if (fn) fn(newSong.id, newSong.title, newSong.artist);
+          executeCommand("playSong", newSong.id, newSong.title, newSong.artist);
         };
         input.click();
       }
@@ -324,6 +295,73 @@ const LibraryContent: Component<LibraryContentProps> = (props) => {
     input.click();
   }
 
+  const handlePlayNext = (song: Song) => {
+    addToPlayNext({ id: song.id, title: song.title, artist: song.artist });
+    closeMenu();
+  };
+
+  const handleContextAddToPlaylist = (categoryId: string, songId: number) => {
+    addToPlaylist(categoryId, songId);
+  };
+
+  const handleImportCover = async (songId: number) => {
+    try {
+      if (isTauri) {
+        const { open } = await import("@tauri-apps/plugin-dialog");
+        const selected = await open({
+          multiple: false,
+          filters: [{ name: "图片", extensions: ["jpg", "jpeg", "png"] }],
+        });
+        if (!selected) return;
+        const platform = await getPlatform();
+        await platform.importCover(songId, selected);
+        setLibraryStore("songs", (song) => song.id === songId, "hasCover", true);
+        setCoverRefreshKey((k) => k + 1);
+      }
+    } catch (e) { console.error("导入封面失败:", e); }
+  };
+
+  const handleBatchSelect = () => {
+    setBatchMode(true);
+    setSelectedIds(new Set<number>());
+  };
+
+  const handleContextDelete = async (songId: number) => {
+    await handleDeleteSong(songId);
+  };
+
+  const handleBatchAddToPlaylist = (categoryId: string, _songIds: number[]) => {
+    const ids = Array.from(selectedIds());
+    for (const id of ids) {
+      addToPlaylist(categoryId, id);
+    }
+    setSelectedIds(new Set<number>());
+    setBatchAddOpen(false);
+  };
+
+  const handleDeleteSelected = async () => {
+    const ids = Array.from(selectedIds());
+    if (!confirm(`确定删除选中的 ${ids.length} 首歌？`)) return;
+    for (const id of ids) {
+      try {
+        const platform = await getPlatform();
+        if (isTauri) await platform.deleteSong(id);
+      } catch (err) {
+        console.error("删除失败:", err);
+      }
+      await removeSongFromStore(id);
+      executeCommand("handleSongDeleted", id);
+    }
+    setSelectedIds(new Set<number>());
+  };
+
+  const handleExitBatchMode = () => {
+    setBatchMode(false);
+    setSelectedIds(new Set<number>());
+  };
+
+  const handleToggleAddOpen = () => setBatchAddOpen((v) => !v);
+
   return (
     <>
     <div class="flex-1 flex flex-col p-[18px] overflow-hidden" style="position: relative;">
@@ -339,8 +377,7 @@ const LibraryContent: Component<LibraryContentProps> = (props) => {
             <button
               onClick={() => {
                 const items = filteredSongs().map((s) => ({ id: s.id, title: s.title, artist: s.artist, duration: s.duration, hasLyrics: s.hasLyrics }));
-                const fn = (window as any).__replaceQueueAndPlay;
-                if (fn) fn(items, 0);
+                executeCommand("replaceQueueAndPlay", items, 0);
               }}
               class="text-xs px-3 py-1.5 rounded"
               style={{ background: "var(--accent-gradient)", color: "white" }}
@@ -418,245 +455,63 @@ const LibraryContent: Component<LibraryContentProps> = (props) => {
           <div class="flex items-center justify-center h-full text-xs" style="color: rgba(255,255,255,0.65);">加载中...</div>
         ) : paged().length === 0 ? (
           <div class="flex items-center justify-center h-full text-xs" style="color: rgba(255,255,255,0.65);">暂无歌曲，导入音乐开始</div>
-        ) : paged().map((song, i) => {
-          const liked = isFavorite(song.id);
-          return (
-            <div
-              onClick={() => {
-                if (batchMode()) {
-                  const next = new Set(selectedIds());
-                  if (next.has(song.id)) next.delete(song.id);
-                  else next.add(song.id);
-                  setSelectedIds(next);
-                } else {
-                  setSelectedSongId(song.id);
-                }
-              }}
-              onDblClick={() => {
-                if (!batchMode()) props.onPlay(song.id, song.title, song.artist);
-              }}
-              onContextMenu={(e) => openSongMenu(song, e)}
-              class="flex items-center py-3.5 text-sm border-b cursor-pointer hover:bg-white hover:bg-opacity-5"
-              style={{ background: (selectedSongId() === song.id && !batchMode()) || (batchMode() && selectedIds().has(song.id)) ? "rgba(var(--accent-rgb), 0.1)" : undefined, "border-color": "rgba(255,255,255,0.03)" }}
-            >
-              {batchMode() && (
-                <div class="w-[28px] flex-shrink-0 flex items-center justify-center">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds().has(song.id)}
-                    onInput={(e) => {
-                      const next = new Set(selectedIds());
-                      if (e.currentTarget.checked) next.add(song.id);
-                      else next.delete(song.id);
-                      setSelectedIds(next);
-                    }}
-                    class="w-3 h-3"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-              )}
-              <div class="w-[24px] flex-shrink-0" style="color: rgba(255,255,255,0.5);">{(page() - 1) * perPage + i + 1}</div>
-              <div class="flex-[2] flex items-center gap-2 min-w-0">
-                <CoverCell song={song} refreshKey={coverRefreshKey()} />
-                <span class="truncate" style="color: rgba(255,255,255,0.85);">{song.title}</span>
-              </div>
-              <div class="flex-[1.4] truncate" style="color: rgba(255,255,255,0.6);">{song.artist}</div>
-              <div class="flex-[1] truncate" style="color: rgba(255,255,255,0.65);">{song.album}</div>
-              <div class="w-[44px] text-center font-mono" style="color: rgba(255,255,255,0.65);">{song.duration}</div>
-              <div class="w-[52px] text-center font-mono text-xs" style="color: rgba(255,255,255,0.65);">{song.playCount || 0}</div>
-              <div class="w-[38px] text-center flex items-center justify-center gap-0.5" style="color: rgba(255,255,255,0.65);">
-                {song.hasLyrics
-                  ? <span style="color: #34d399;">✓</span>
-                  : <span onClick={(e) => { e.stopPropagation(); importLyrics(song.id); }} class="cursor-pointer" style="color: rgba(255,255,255,0.8); font-size: 15px;">+</span>
-                }
-              </div>
-              <div class="w-[34px] text-center text-sm cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleFavorite(song.id); }} style={`color: ${liked ? "#ef4444" : "rgba(255,255,255,0.5)"};`}>
-                {liked ? "♥" : "♡"}
-              </div>
-              <div
-                onClick={(e) => openSongMenu(song, e)}
-                class="w-[34px] text-center cursor-pointer text-xs"
-                style="color: rgba(255,255,255,0.65);" data-menu-trigger
-              >⋯</div>
-            </div>
-          );
-        })}
+        ) : paged().map((song, i) => (
+          <SongRow
+            song={song}
+            index={i}
+            page={page()}
+            perPage={perPage}
+            isSelected={(!batchMode() && selectedSongId() === song.id) || (batchMode() && selectedIds().has(song.id))}
+            isFavorite={isFavorite(song.id)}
+            isBatchMode={batchMode()}
+            coverRefreshKey={coverRefreshKey()}
+            onPlay={props.onPlay}
+            onToggleFavorite={toggleFavorite}
+            onToggleSelect={(id) => {
+              const next = new Set(selectedIds());
+              if (next.has(id)) next.delete(id); else next.add(id);
+              setSelectedIds(next);
+            }}
+            onSelect={setSelectedSongId}
+            onOpenMenu={openSongMenu}
+            onImportLyrics={importLyrics}
+          />
+        ))}
       </div>
 
       {batchMode() && (
-        <div
-          class="flex items-center gap-2 px-3 py-2 rounded-lg mb-2"
-          style={{
-            background: "rgba(var(--accent-rgb, 99, 102, 241), 0.1)",
-            border: "1px solid rgba(var(--accent-rgb, 99, 102, 241), 0.2)",
-          }}
-        >
-          <span class="text-xs font-medium" style="color: rgba(255,255,255,0.8);">
-            已选 {selectedIds().size} 首
-          </span>
-          <div class="flex-1" />
-          {selectedIds().size > 0 && (
-            <>
-              <button
-                onClick={() => setBatchAddOpen(true)}
-                class="text-xs px-2.5 py-1 rounded transition-colors"
-                style="background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.75);"
-              >添加到歌单</button>
-              <button
-                onClick={async () => {
-                  const ids = Array.from(selectedIds());
-                  if (!confirm(`确定删除选中的 ${ids.length} 首歌？`)) return;
-                  for (const id of ids) {
-                    try {
-                      const platform = await getPlatform();
-                      if (isTauri) await platform.deleteSong(id);
-                    } catch (err) {
-                      console.error("删除失败:", err);
-                    }
-                    await removeSongFromStore(id);
-                    (window as any).__handleSongDeleted?.(id);
-                  }
-                  setSelectedIds(new Set<number>());
-                }}
-                class="text-xs px-2.5 py-1 rounded transition-colors"
-                style="background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3);"
-              >删除选中</button>
-            </>
-          )}
-          <button
-            onClick={() => { setBatchMode(false); setSelectedIds(new Set<number>()); }}
-            class="text-xs px-2.5 py-1 rounded transition-colors"
-            style="background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.08);"
-          >退出多选</button>
-        </div>
+        <BatchBar
+          selectedCount={selectedIds().size}
+          userPlaylists={userPlaylists()}
+          isTauri={isTauri}
+          showAddOpen={batchAddOpen()}
+          onAddToPlaylist={handleBatchAddToPlaylist}
+          onDeleteSelected={handleDeleteSelected}
+          onExitBatchMode={handleExitBatchMode}
+          onToggleAddOpen={handleToggleAddOpen}
+        />
       )}
 
-      {batchAddOpen() && (
-        <>
-          <div class="fixed inset-0 z-10" onClick={() => setBatchAddOpen(false)} />
-          <div
-            class="absolute left-20 z-20 rounded-lg py-1 min-w-[120px]"
-            style={{
-              background: "rgba(15,15,20,0.95)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              "backdrop-filter": "blur(16px)",
-            }}
-          >
-            {userPlaylists().length > 0 ? userPlaylists().map((pl) => (
-              <div
-                onClick={async () => {
-                  for (const id of Array.from(selectedIds())) {
-                    await addToPlaylist(pl.id, id);
-                  }
-                  setBatchAddOpen(false);
-                  setSelectedIds(new Set<number>());
-                }}
-                class="px-3 py-1.5 text-xs cursor-pointer truncate hover:bg-white hover:bg-opacity-5"
-                style="color: rgba(255,255,255,0.65);"
-              >{pl.name}</div>
-            )) : (
-              <div class="px-3 py-1.5 text-xs" style="color: rgba(255,255,255,0.6);">暂无歌单</div>
-            )}
-          </div>
-        </>
-      )}
-
-      <div class="flex justify-center items-center gap-1.5 pt-3 mt-auto border-t" style="border-color: rgba(255,255,255,0.04);">
-        <button onClick={() => setPage(Math.max(1, page() - 1))} disabled={page() <= 1} class="text-xs" style="color: rgba(255,255,255,0.65);">‹</button>
-        {Array.from({ length: totalPages() }, (_, i) => i + 1).map((p) => (
-          <button onClick={() => setPage(p)} class="text-xs px-[9px] py-[3px] rounded" style={{
-            background: p === page() ? "rgba(var(--accent-rgb), 0.12)" : "transparent",
-            color: p === page() ? "var(--accent-light)" : "rgba(255,255,255,0.65)",
-          }}>{p}</button>
-        ))}
-        <button onClick={() => setPage(Math.min(totalPages(), page() + 1))} disabled={page() >= totalPages()} class="text-xs" style="color: rgba(255,255,255,0.65);">›</button>
-      </div>
+      <Pagination
+        page={page()}
+        totalPages={totalPages()}
+        onPageChange={setPage}
+      />
     </div>
 
-    {menuSong() && menuPos() && (
-      <div
-        ref={menuRef}
-        class="fixed z-[9999] rounded-lg py-1 min-w-[150px]"
-        style={{
-          left: `${menuPos()!.x}px`,
-          top: `${menuPos()!.y}px`,
-          background: "rgba(15,15,20,0.95)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          "backdrop-filter": "blur(16px)",
-        }}
-      >
-        <div
-          onClick={() => { const s = menuSong(); if (s) { addToPlayNext({ id: s.id, title: s.title, artist: s.artist }); } closeMenu(); }}
-          class="px-3 py-2 text-xs cursor-pointer whitespace-nowrap hover:bg-white hover:bg-opacity-5 rounded"
-          style="color: rgba(255,255,255,0.6);"
-        >➡️ 下一首播放</div>
-
-        <div class="relative">
-          <div
-            onClick={(e) => { e.stopPropagation(); const s = menuSong(); if (s) setPlaylistSubSongId(playlistSubSongId() === s.id ? null : s.id); }}
-            class="px-3 py-2 text-xs cursor-pointer whitespace-nowrap hover:bg-white hover:bg-opacity-5 rounded"
-            style="color: rgba(255,255,255,0.6);"
-          >➕ 添加到歌单</div>
-          {playlistSubSongId() !== null && (
-            <div
-              class="absolute right-full top-0 mr-1 z-[9999] rounded-lg py-1 min-w-[110px]"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                background: "rgba(15,15,20,0.95)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                "backdrop-filter": "blur(16px)",
-              }}
-            >
-              {userPlaylists().length > 0 ? userPlaylists().map((pl) => (
-                <div
-                  onClick={() => { addToPlaylist(pl.id, menuSong()!.id); closeMenu(); }}
-                  class="px-3 py-1.5 text-xs cursor-pointer truncate hover:bg-white hover:bg-opacity-5"
-                  style="color: rgba(255,255,255,0.65);"
-                >{pl.name}</div>
-              )) : (
-                <div class="px-3 py-1.5 text-xs" style="color: rgba(255,255,255,0.6);">暂无歌单</div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div
-          onClick={async () => {
-            const s = menuSong(); if (!s) return; closeMenu();
-            try {
-              if (isTauri) {
-                const { open } = await import("@tauri-apps/plugin-dialog");
-                const selected = await open({
-                  multiple: false,
-                  filters: [{ name: "图片", extensions: ["jpg", "jpeg", "png"] }],
-                });
-                if (!selected) return;
-                const platform = await getPlatform();
-                await platform.importCover(s.id, selected);
-                setLibraryStore("songs", (song) => song.id === s.id, "hasCover", true);
-                setCoverRefreshKey((k) => k + 1);
-              }
-            } catch (e) { console.error("导入封面失败:", e); }
-          }}
-          class="px-3 py-2 text-xs cursor-pointer whitespace-nowrap hover:bg-white hover:bg-opacity-5 rounded"
-          style="color: rgba(255,255,255,0.6);"
-        >🖼️ 导入封面</div>
-
-        <div
-          onClick={() => { closeMenu(); setBatchMode(true); setSelectedIds(new Set<number>()); }}
-          class="px-3 py-2 text-xs cursor-pointer whitespace-nowrap hover:bg-white hover:bg-opacity-5 rounded"
-          style="color: rgba(255,255,255,0.6);"
-        >📋 批量选择</div>
-
-        <div class="h-px mx-2 my-0.5" style="background: rgba(255,255,255,0.06);"></div>
-
-        <div
-          onClick={async (e) => { e.stopPropagation(); const s = menuSong(); if (s) await handleDeleteSong(s.id); closeMenu(); }}
-          class="px-3 py-2 text-xs cursor-pointer whitespace-nowrap hover:bg-white hover:bg-opacity-5 rounded"
-          style="color: #f87171;"
-        >🗑️ 删除</div>
-      </div>
-    )}
+    <ContextMenu
+      song={menuSong()}
+      position={menuPos()}
+      userPlaylists={userPlaylists()}
+      isTauri={isTauri}
+      menuRef={(el) => { menuRef = el; }}
+      onClose={closeMenu}
+      onPlayNext={handlePlayNext}
+      onAddToPlaylist={handleContextAddToPlaylist}
+      onImportCover={handleImportCover}
+      onBatchSelect={handleBatchSelect}
+      onDelete={handleContextDelete}
+    />
     </>
   );
 };

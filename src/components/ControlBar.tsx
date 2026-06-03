@@ -1,6 +1,7 @@
 import { createResource, createSignal, createMemo, onCleanup, type Component } from "solid-js";
 import { AudioEngine } from "../core/audioEngine";
 import { playerStore, setPlayerStore } from "../store/playerStore";
+import { executeCommand } from "../core/commandBus";
 import { getPlatform } from "../platform";
 import { convertFileSrc } from "@tauri-apps/api/core";
 
@@ -187,13 +188,13 @@ const ControlBar: Component<ControlBarProps> = (props) => {
 
         <div class="flex items-center gap-5">
           <button
-            onClick={() => { const fn = (window as any).__playPrev; if (fn) fn(); }}
+            onClick={() => executeCommand("playPrev")}
             class="text-lg transition-colors"
             style="color: rgba(255,255,255,0.55);"
           >⏮</button>
           <div class="relative">
             <button
-              onClick={() => { const fn = (window as any).__requestPlay; if (fn) fn(); }}
+              onClick={() => executeCommand("requestPlay")}
               class="w-11 h-11 rounded-full flex items-center justify-center"
               style={{ background: "var(--accent-gradient)", "box-shadow": "0 4px 20px rgba(var(--accent-rgb), 0.35)" }}
             >
@@ -212,7 +213,7 @@ const ControlBar: Component<ControlBarProps> = (props) => {
             )}
           </div>
           <button
-            onClick={() => { const fn = (window as any).__playNext; if (fn) fn(); }}
+            onClick={() => executeCommand("playNext")}
             class="text-lg transition-colors"
             style="color: rgba(255,255,255,0.55);"
           >⏭</button>
@@ -289,7 +290,7 @@ const ControlBar: Component<ControlBarProps> = (props) => {
             {props.visualizerMode === "off" ? "关" : props.visualizerMode === "2d" ? "2D" : "3D"}
           </button>
           <button
-            onClick={() => { const fn = (window as any).__toggleMiniMode; if (fn) fn(); }}
+            onClick={() => executeCommand("toggleMiniMode")}
             class="text-xs px-1.5 py-0.5 rounded transition-colors"
             style="color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.1);"
           >⤡</button>

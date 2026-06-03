@@ -1,13 +1,6 @@
 import type { IPlatform } from "./interface";
 import { browserPlatform } from "./browser";
-
-function isTauri(): boolean {
-  try {
-    return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-  } catch {
-    return false;
-  }
-}
+import { isTauri } from "../core/utils";
 
 let platform: IPlatform;
 

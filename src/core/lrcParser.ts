@@ -43,6 +43,9 @@ function extractWordTimestamps(text: string): { words: LrcWord[]; cleanText: str
   for (let i = 0; i < words.length - 1; i++) {
     words[i].endTime = words[i + 1].startTime;
   }
+  if (words.length > 0) {
+    words[words.length - 1].endTime = words[words.length - 1].startTime + 1;
+  }
 
   return { words, cleanText };
 }
@@ -63,17 +66,15 @@ export function parseLrc(lrcContent: string, translationContent?: string): LrcDa
   const transMap = new Map<number, string>();
   if (translationContent) {
     const transLines = translationContent.split("\n");
-    let idx = 0;
     for (const tl of transLines) {
       const tm = tl.match(lineRegex);
       if (tm) {
-        transMap.set(idx, tm[2].trim());
-        idx++;
+        const ts = parseTimestamp(tm[1]);
+        transMap.set(ts, tm[2].trim());
       }
     }
   }
 
-  let transIdx = 0;
   const result: LrcData = { offset: 0, lines: [] };
 
   for (const raw of contentLines) {
@@ -94,7 +95,7 @@ export function parseLrc(lrcContent: string, translationContent?: string): LrcDa
       const startTime = parseTimestamp(lineMatch[1]);
       const rawText = lineMatch[2].trim();
       const { words, cleanText } = extractWordTimestamps(rawText);
-      const translation = transMap.get(transIdx);
+      const translation = transMap.get(startTime);
 
       lines.push({
         text: cleanText,
@@ -103,7 +104,6 @@ export function parseLrc(lrcContent: string, translationContent?: string): LrcDa
         endTime: startTime + 4,
         words: words.length > 0 ? words : [{ word: cleanText, startTime, endTime: startTime + 4 }],
       });
-      transIdx++;
     }
   }
 

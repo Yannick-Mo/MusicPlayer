@@ -11,7 +11,6 @@ use tauri::{
 };
 
 #[cfg(target_os = "windows")]
-#[cfg(target_os = "windows")]
 fn set_window_corner_preference(app: &tauri::AppHandle, value: u32) {
     use raw_window_handle::HasWindowHandle;
     if let Some(window) = app.get_webview_window("main") {
@@ -214,7 +213,6 @@ pub fn run() {
             });
             let _ = app.notification().request_permission();
 
-            #[cfg(target_os = "windows")]
             #[cfg(target_os = "windows")]
             set_window_corner_preference(&app.app_handle(), 3);
 

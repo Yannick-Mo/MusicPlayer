@@ -192,11 +192,15 @@ impl Library {
         }
     }
 
-    pub fn import_song(&self, source: &str) -> std::io::Result<SongMeta> {
-        self.ensure_dirs()?;
+    fn import_song_internal(&self, source: &str, index: &mut LibraryIndex) -> std::io::Result<SongMeta> {
         let src = PathBuf::from(source);
         let filename = src.file_name().unwrap_or_default().to_string_lossy().to_string();
         let dest = self.songs_dir().join(&filename);
+
+        // Dedup check
+        if let Some(existing) = index.songs.iter().find(|s| s.filename == filename) {
+            return Ok(existing.clone());
+        }
 
         fs::copy(&src, &dest)?;
 
@@ -210,7 +214,6 @@ impl Library {
 
         let has_lrc = self.import_lyrics_from_source(&src, &stem);
 
-        let mut index = self.load_index();
         let new_id = index.songs.iter().map(|s| s.id).max().unwrap_or(9999) + 1;
 
         let mut has_cover = extract_cover(&src, &self.covers_dir(), new_id);
@@ -234,13 +237,20 @@ impl Library {
         };
 
         index.songs.push(meta.clone());
-        self.save_index(&index)?;
+        Ok(meta)
+    }
 
+    pub fn import_song(&self, source: &str) -> std::io::Result<SongMeta> {
+        self.ensure_dirs()?;
+        let mut index = self.load_index();
+        let meta = self.import_song_internal(source, &mut index)?;
+        self.save_index(&index)?;
         Ok(meta)
     }
 
     pub fn import_folder(&self, folder: &str) -> std::io::Result<ImportResult> {
         self.ensure_dirs()?;
+        let mut index = self.load_index();
         let dir = PathBuf::from(folder);
         let mut total = 0u32;
         let mut lyrics = 0u32;
@@ -254,17 +264,16 @@ impl Library {
                     if let Some(ext) = path.extension() {
                         match ext.to_str().unwrap_or("").to_lowercase().as_str() {
                             "mp3" | "flac" | "wav" | "aac" | "ogg" | "m4a" => {
-                                if let Ok(_meta) = self.import_song(path.to_str().unwrap_or("")) {
-                                    total += 1;
-                                    let filename = path.file_name()
-                                        .unwrap_or_default()
-                                        .to_string_lossy()
-                                        .to_string();
-                                    if self.has_lyrics(&filename) {
-                                        lyrics += 1;
-                                    } else {
-                                        no_lyrics += 1;
+                                match self.import_song_internal(path.to_str().unwrap_or(""), &mut index) {
+                                    Ok(meta) => {
+                                        total += 1;
+                                        if meta.has_lyrics {
+                                            lyrics += 1;
+                                        } else {
+                                            no_lyrics += 1;
+                                        }
                                     }
+                                    Err(_) => {}
                                 }
                             }
                             _ => {}
@@ -274,6 +283,7 @@ impl Library {
             }
         }
 
+        self.save_index(&index)?;
         Ok(ImportResult { total, lyrics, no_lyrics })
     }
 

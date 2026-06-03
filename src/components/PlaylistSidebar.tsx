@@ -1,5 +1,6 @@
 import { createSignal, createResource, type Component } from "solid-js";
 import { playerStore, setPlayerStore, savePlayerState } from "../store/playerStore";
+import { executeCommand } from "../core/commandBus";
 import { libraryStore } from "../store/libraryStore";
 import { getPlatform } from "../platform";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -74,8 +75,7 @@ const PlaylistSidebar: Component<PlaylistSidebarProps> = (props) => {
       );
 
   const handlePlay = (index: number) => {
-    const fn = (window as any).__playAt;
-    if (fn) fn(index);
+    executeCommand("playAt", index);
   };
 
   const getDuration = (id: number, fallback?: string): string | undefined => {
@@ -197,7 +197,7 @@ const PlaylistSidebar: Component<PlaylistSidebarProps> = (props) => {
                       </div>
                     )}
                     <button
-                      onClick={(e) => { e.stopPropagation(); (window as any).__removeFromQueue?.(index); }}
+                      onClick={(e) => { e.stopPropagation(); executeCommand("removeFromQueue", index); }}
                       class="text-[11px] opacity-0 group-hover:opacity-100 transition-opacity"
                       style="color: rgba(255,255,255,0.65);"
                     >✕</button>
@@ -209,7 +209,7 @@ const PlaylistSidebar: Component<PlaylistSidebarProps> = (props) => {
 
           <div class="px-4 py-2.5 flex justify-between text-[11px] border-t" style="color: rgba(255,255,255,0.65); border-color: rgba(255,255,255,0.06);">
             <span
-              onClick={() => { const fn = (window as any).__clearQueue; if (fn) fn(); }}
+              onClick={() => executeCommand("clearQueue")}
               class="cursor-pointer"
             >🗑️ 清空队列</span>
             <span>总计 {totalDuration()}</span>

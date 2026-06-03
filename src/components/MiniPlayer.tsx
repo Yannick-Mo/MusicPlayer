@@ -1,5 +1,6 @@
 import { createResource, createMemo, type Component } from "solid-js";
 import { AudioEngine } from "../core/audioEngine";
+import { executeCommand } from "../core/commandBus";
 import { playerStore } from "../store/playerStore";
 
 interface MiniPlayerProps {
@@ -46,19 +47,19 @@ const MiniPlayer: Component<MiniPlayerProps> = (props) => {
         </div>
         <div class="flex items-center gap-2.5">
           <button
-            onClick={() => { const fn = (window as any).__playPrev; if (fn) fn(); }}
+            onClick={() => executeCommand("playPrev")}
             class="text-sm"
             style="color: rgba(255,255,255,0.55);"
           >⏮</button>
           <button
-            onClick={() => { const fn = (window as any).__requestPlay; if (fn) fn(); }}
+            onClick={() => executeCommand("requestPlay")}
             class="w-8 h-8 rounded-full flex items-center justify-center"
             style={{ background: "var(--accent-gradient)" }}
           >
             <span class="text-white text-sm">{playerStore.playing ? "⏸" : "▶"}</span>
           </button>
           <button
-            onClick={() => { const fn = (window as any).__playNext; if (fn) fn(); }}
+            onClick={() => executeCommand("playNext")}
             class="text-sm"
             style="color: rgba(255,255,255,0.55);"
           >⏭</button>
