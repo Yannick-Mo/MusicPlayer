@@ -191,7 +191,6 @@ const LibraryContent: Component<LibraryContentProps> = (props) => {
         const meta: SongFileInfo = await platform.importSong(selected);
         await addSongFromImport(meta);
         setPage(totalPages());
-        executeCommand("playSong", meta.id, meta.title, meta.artist);
       } else {
         const input = document.createElement("input");
         input.type = "file";
@@ -214,7 +213,6 @@ const LibraryContent: Component<LibraryContentProps> = (props) => {
           setLibraryStore("songs", [...libraryStore.songs, newSong]);
           setLibraryStore("categories", 0, "songIds", [...libraryStore.categories[0].songIds, newSong.id]);
           setPage(totalPages());
-          executeCommand("playSong", newSong.id, newSong.title, newSong.artist);
         };
         input.click();
       }
