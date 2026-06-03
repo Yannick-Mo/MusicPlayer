@@ -73,37 +73,39 @@ const LibrarySidebar: Component = () => {
       width: `${width()}px`,
       "border-right": "1px solid rgba(255,255,255,0.06)",
     }}>
-      <div class="text-sm font-semibold mb-3.5 px-1" style="color: rgba(255,255,255,0.8); letter-spacing: 0.5px;">
+      <div class="text-sm font-semibold mb-3.5 px-1 flex-shrink-0" style="color: rgba(255,255,255,0.8); letter-spacing: 0.5px;">
         📚 我的歌单
       </div>
 
-      {libraryStore.categories.map((cat) => {
-        const count = cat.id === "all" ? libraryStore.songs.length : cat.songIds.length;
-        const isActive = libraryStore.activeCategoryId === cat.id;
-        return (
-          <div
-            onClick={() => setLibraryStore("activeCategoryId", cat.id)}
-            onContextMenu={(e) => {
-              if (cat.type === "user") {
-                e.preventDefault();
-                e.stopPropagation();
-                setCtxMenu({ x: e.clientX, y: e.clientY, catId: cat.id });
-              }
-            }}
-            class="flex items-center gap-[7px] px-3 py-2.5 rounded-md text-sm cursor-pointer mb-0.5 hover:bg-white hover:bg-opacity-5"
-            style={{
-              background: isActive ? "rgba(var(--accent-rgb), 0.15)" : undefined,
-              color: isActive ? "#ffffff" : "rgba(255,255,255,0.7)",
-            }}
-          >
-            <span>{cat.icon}</span>
-            <span>{cat.name}</span>
-            <span class="ml-auto text-xs" style="color: rgba(255,255,255,0.35);">{count}</span>
-          </div>
-        );
-      })}
+      <div class="flex-1 overflow-y-auto min-h-0">
+        {libraryStore.categories.map((cat) => {
+          const count = cat.id === "all" ? libraryStore.songs.length : cat.songIds.length;
+          const isActive = libraryStore.activeCategoryId === cat.id;
+          return (
+            <div
+              onClick={() => setLibraryStore("activeCategoryId", cat.id)}
+              onContextMenu={(e) => {
+                if (cat.type === "user") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCtxMenu({ x: e.clientX, y: e.clientY, catId: cat.id });
+                }
+              }}
+              class="flex items-center gap-[7px] px-3 py-2.5 rounded-md text-sm cursor-pointer mb-0.5 hover:bg-white hover:bg-opacity-5"
+              style={{
+                background: isActive ? "rgba(var(--accent-rgb), 0.15)" : undefined,
+                color: isActive ? "#ffffff" : "rgba(255,255,255,0.7)",
+              }}
+            >
+              <span>{cat.icon}</span>
+              <span>{cat.name}</span>
+              <span class="ml-auto text-xs" style="color: rgba(255,255,255,0.35);">{count}</span>
+            </div>
+          );
+        })}
+      </div>
 
-      <div class="mt-auto pt-3">
+      <div class="mt-auto pt-3 flex-shrink-0">
         <div
           onClick={() => setShowModal(true)}
           class="flex items-center justify-center gap-1 py-2.5 text-sm rounded-md cursor-pointer"
