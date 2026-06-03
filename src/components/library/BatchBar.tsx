@@ -15,35 +15,38 @@ interface BatchBarProps {
 const BatchBar: Component<BatchBarProps> = (p) => {
   return (
     <>
-      {p.selectedCount > 0 && (
-        <div
-          class="flex items-center gap-2 px-3 py-2 rounded-lg mb-2"
-          style={{
-            background: "rgba(var(--accent-rgb, 99, 102, 241), 0.1)",
-            border: "1px solid rgba(var(--accent-rgb, 99, 102, 241), 0.2)",
-          }}
-        >
-          <span class="text-xs font-medium" style="color: rgba(255,255,255,0.8);">
-            已选 {p.selectedCount} 首
-          </span>
-          <div class="flex-1" />
-          <button
-            onClick={() => p.onToggleAddOpen()}
-            class="text-xs px-2.5 py-1 rounded transition-colors"
-            style="background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.75);"
-          >添加到歌单</button>
-          <button
-            onClick={() => p.onDeleteSelected()}
-            class="text-xs px-2.5 py-1 rounded transition-colors"
-            style="background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3);"
-          >删除选中</button>
-          <button
-            onClick={() => p.onExitBatchMode()}
-            class="text-xs px-2.5 py-1 rounded transition-colors"
-            style="background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.08);"
-          >退出多选</button>
-        </div>
-      )}
+      <div
+        class="flex items-center gap-2 px-3 py-2 rounded-lg mb-2"
+        style={{
+          background: "rgba(var(--accent-rgb, 99, 102, 241), 0.1)",
+          border: "1px solid rgba(var(--accent-rgb, 99, 102, 241), 0.2)",
+        }}
+      >
+        {p.selectedCount > 0 && (
+          <>
+            <span class="text-xs font-medium" style="color: rgba(255,255,255,0.8);">
+              已选 {p.selectedCount} 首
+            </span>
+            <div class="flex-1" />
+            <button
+              onClick={() => p.onToggleAddOpen()}
+              class="text-xs px-2.5 py-1 rounded transition-colors"
+              style="background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.75);"
+            >添加到歌单</button>
+            <button
+              onClick={() => p.onDeleteSelected()}
+              class="text-xs px-2.5 py-1 rounded transition-colors"
+              style="background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3);"
+            >删除选中</button>
+          </>
+        )}
+        {p.selectedCount === 0 && <div class="flex-1" />}
+        <button
+          onClick={() => p.onExitBatchMode()}
+          class="text-xs px-2.5 py-1 rounded transition-colors"
+          style="background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.08);"
+        >退出多选</button>
+      </div>
 
       {p.showAddOpen && (
         <>

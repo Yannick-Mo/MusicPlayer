@@ -84,11 +84,11 @@ const LibraryContent: Component<LibraryContentProps> = (props) => {
         const platform = await getPlatform();
         await platform.deleteSong(songId);
       }
+      await removeSongFromStore(songId);
+      executeCommand("handleSongDeleted", songId);
     } catch (err) {
-      console.error("后端删除失败:", err);
+      console.error("删除失败:", err);
     }
-    await removeSongFromStore(songId);
-    executeCommand("handleSongDeleted", songId);
   }
 
   const filteredSongs = () => {
@@ -322,6 +322,7 @@ const LibraryContent: Component<LibraryContentProps> = (props) => {
   const handleBatchSelect = () => {
     setBatchMode(true);
     setSelectedIds(new Set<number>());
+    setBatchAddOpen(false);
   };
 
   const handleContextDelete = async (songId: number) => {
@@ -335,6 +336,7 @@ const LibraryContent: Component<LibraryContentProps> = (props) => {
     }
     setSelectedIds(new Set<number>());
     setBatchAddOpen(false);
+    setBatchMode(false);
   };
 
   const handleDeleteSelected = async () => {
@@ -351,6 +353,7 @@ const LibraryContent: Component<LibraryContentProps> = (props) => {
       executeCommand("handleSongDeleted", id);
     }
     setSelectedIds(new Set<number>());
+    setBatchMode(false);
   };
 
   const handleExitBatchMode = () => {
