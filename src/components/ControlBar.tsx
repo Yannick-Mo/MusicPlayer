@@ -275,8 +275,7 @@ const ControlBar: Component<ControlBarProps> = (props) => {
                 <div
                   class="absolute bottom-full right-0 mb-2 py-2 rounded-xl z-20 min-w-[140px]"
                   style={{
-                    background: "rgba(15,15,20,0.95)",
-                    "backdrop-filter": "blur(16px)",
+                    background: "rgba(15,15,22,0.3)",
                     border: "1px solid rgba(255,255,255,0.06)",
                   }}
                 >
