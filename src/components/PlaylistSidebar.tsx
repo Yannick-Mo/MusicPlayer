@@ -215,8 +215,8 @@ const PlaylistSidebar: Component<PlaylistSidebarProps> = (props) => {
                 })}
               </div>
             </div>
-            <div class="absolute right-0 top-0 w-px pointer-events-none" style={{ height: `${qClientH()}px`, opacity: qScrollH() > qClientH() ? 0.4 : 0 }}>
-              <div class="w-px rounded-full" style={{ height: `${qThumbSize()}px`, transform: `translateY(${qThumbOff()}px)`, background: "rgba(255,255,255,0.15)" }} />
+            <div class="absolute right-0 top-0 w-[3px] pointer-events-none" style={{ height: `${qClientH()}px`, opacity: qScrollH() > qClientH() ? 0.4 : 0 }}>
+              <div class="w-[3px] rounded-full" style={{ height: `${qThumbSize()}px`, transform: `translateY(${qThumbOff()}px)`, background: "rgba(255,255,255,0.15)" }} />
             </div>
           </div>
 
