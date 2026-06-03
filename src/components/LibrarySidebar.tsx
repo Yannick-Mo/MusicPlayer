@@ -143,7 +143,7 @@ const LibrarySidebar: Component = () => {
         </div>
       </div>
 
-      <style>{`.scm-item:hover{background:rgba(var(--accent-rgb,99,102,241),0.15)}`}</style>
+      <style>{`.scm-item:hover,.modal-cancel:hover{background:rgba(var(--accent-rgb,99,102,241),0.2)!important}`}</style>
       {ctxMenu() && (
         <div
           class="fixed z-50 rounded-lg py-1 px-1 min-w-[130px]"
@@ -178,7 +178,7 @@ const LibrarySidebar: Component = () => {
             <div class="flex justify-end gap-2">
               <button
                 onClick={() => setDeleteTarget(null)}
-                class="px-3 py-1.5 text-[11px] rounded-md"
+                class="modal-cancel px-3 py-1.5 text-[11px] rounded-md"
                 style="background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.55);"
               >取消</button>
               <button
@@ -230,7 +230,7 @@ const LibrarySidebar: Component = () => {
             <div class="flex justify-end gap-2">
               <button
                 onClick={cancelCreate}
-                class="px-3 py-1.5 text-[11px] rounded-md"
+                class="modal-cancel px-3 py-1.5 text-[11px] rounded-md"
                 style="background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.55);"
               >取消</button>
               <button
