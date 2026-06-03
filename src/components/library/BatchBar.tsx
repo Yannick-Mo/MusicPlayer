@@ -41,9 +41,8 @@ const BatchBar: Component<BatchBarProps> = (p) => {
                   <div
                     class="absolute right-0 z-20 rounded-lg py-1 min-w-[120px] max-h-48 overflow-y-auto"
                     style={{
-                      background: "rgba(15,15,22,0.85)",
+                      background: "rgba(15,15,22,0.3)",
                       border: "1px solid rgba(255,255,255,0.08)",
-                      "backdrop-filter": "blur(20px)",
                       bottom: "calc(100% + 30px)",
                     }}
                   >

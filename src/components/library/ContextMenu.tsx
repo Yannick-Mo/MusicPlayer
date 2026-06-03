@@ -28,9 +28,8 @@ const ContextMenu: Component<ContextMenuProps> = (p) => {
           style={{
             left: `${p.position.x}px`,
             top: `${p.position.y}px`,
-            background: "rgba(15,15,22,0.85)",
+            background: "rgba(15,15,22,0.3)",
             border: "1px solid rgba(255,255,255,0.08)",
-            "backdrop-filter": "blur(20px)",
           }}
         >
           <div
@@ -50,9 +49,8 @@ const ContextMenu: Component<ContextMenuProps> = (p) => {
                 class="absolute right-full top-0 mr-1 z-[9999] rounded-lg py-1 min-w-[110px] max-h-48 overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
                 style={{
-                  background: "rgba(15,15,22,0.85)",
+                  background: "rgba(15,15,22,0.3)",
                   border: "1px solid rgba(255,255,255,0.08)",
-                  "backdrop-filter": "blur(16px)",
                 }}
               >
                 {p.userPlaylists.length > 0 ? p.userPlaylists.map((pl) => (
