@@ -308,8 +308,8 @@ const Settings: Component = () => {
                     onClick={() => setPlayerStore("visualizerMode", m)}
                     class="px-3 py-1.5 text-xs rounded cursor-pointer transition-colors"
                     style={{
-                      background: playerStore.visualizerMode === m ? "rgba(99,102,241,0.15)" : "transparent",
-                      color: playerStore.visualizerMode === m ? "#818cf8" : "rgba(255,255,255,0.7)",
+                      background: playerStore.visualizerMode === m ? "rgba(var(--accent-rgb), 0.15)" : "transparent",
+                      color: playerStore.visualizerMode === m ? "var(--accent-light)" : "rgba(255,255,255,0.7)",
                     }}
                   >
                     {m === "2d" ? "2D 频谱" : m === "3d" ? "3D 粒子" : "关闭"}

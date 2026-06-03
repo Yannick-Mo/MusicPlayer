@@ -1,4 +1,4 @@
-import { onMount, onCleanup, createEffect, type Component } from "solid-js";
+import { onMount, onCleanup, type Component } from "solid-js";
 import { AudioEngine } from "../core/audioEngine";
 import { VisualizerData } from "../core/visualizerData";
 import { hexToHsl } from "../core/utils";
@@ -17,9 +17,10 @@ const Visualizer2D: Component<{ active: boolean; visualizerData: VisualizerData;
   let rafId: number | null = null;
 
   const draw = () => {
-    if (!canvasRef) { rafId = requestAnimationFrame(draw); return; }
+    rafId = requestAnimationFrame(draw);
+    if (!canvasRef) return;
     const ctx = canvasRef.getContext("2d");
-    if (!ctx) { rafId = requestAnimationFrame(draw); return; }
+    if (!ctx) return;
 
     const raw = props.audioEngine.getAnalyserData();
     const frame = props.visualizerData.process(raw, raw);
@@ -42,7 +43,6 @@ const Visualizer2D: Component<{ active: boolean; visualizerData: VisualizerData;
       ctx.fillRect(x + 1, y, Math.max(1, barWidth - 2), barHeight);
     }
 
-    rafId = requestAnimationFrame(draw);
   };
 
   onMount(() => {
@@ -52,12 +52,6 @@ const Visualizer2D: Component<{ active: boolean; visualizerData: VisualizerData;
     }
     rafId = requestAnimationFrame(draw);
     onCleanup(() => { if (rafId !== null) cancelAnimationFrame(rafId); });
-  });
-
-  createEffect(() => {
-    if (props.active && rafId === null) {
-      rafId = requestAnimationFrame(draw);
-    }
   });
 
   return <canvas ref={canvasRef} class="absolute inset-0 w-full h-full pointer-events-none" />;
