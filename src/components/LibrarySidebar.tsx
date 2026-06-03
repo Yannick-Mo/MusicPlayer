@@ -244,10 +244,8 @@ const LibrarySidebar: Component = () => {
       )}
       <div
         onMouseDown={startDrag}
-        class="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-40 transition-colors"
-        style={{ background: "transparent", "--hover-bg": "rgba(var(--accent-rgb), 0.3)" } as any}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(var(--accent-rgb), 0.3)"; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+        class="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-40"
+        style="background: transparent;"
       />
     </div>
   );
