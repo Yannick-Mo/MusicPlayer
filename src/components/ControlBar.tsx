@@ -1,4 +1,4 @@
-import { createResource, createSignal, createMemo, onCleanup, type Component } from "solid-js";
+import { createResource, createSignal, createMemo, createEffect, onCleanup, type Component } from "solid-js";
 import { AudioEngine } from "../core/audioEngine";
 import { playerStore, setPlayerStore } from "../store/playerStore";
 import { executeCommand } from "../core/commandBus";
@@ -68,8 +68,21 @@ const ControlBar: Component<ControlBarProps> = (props) => {
 
   const [showTimerPopup, setShowTimerPopup] = createSignal(false);
   const [tick, setTick] = createSignal(0);
-  const timerInterval = setInterval(() => setTick(t => t + 1), 1000);
-  onCleanup(() => clearInterval(timerInterval));
+  let timerInterval: ReturnType<typeof setInterval> | undefined;
+
+  createEffect(() => {
+    const end = playerStore.sleepTimerEnd;
+    if (end !== null && !timerInterval) {
+      timerInterval = setInterval(() => setTick(t => t + 1), 1000);
+    } else if (end === null && timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = undefined;
+    }
+  });
+
+  onCleanup(() => {
+    if (timerInterval) clearInterval(timerInterval);
+  });
 
   const remainingMs = createMemo(() => {
     tick();

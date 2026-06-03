@@ -6,7 +6,7 @@ use lofty::file::TaggedFileExt;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SongMeta {
-    pub id: u32,
+    pub id: u64,
     pub filename: String,
     pub title: String,
     pub artist: String,
@@ -26,7 +26,7 @@ pub struct CategoryMeta {
     pub id: String,
     pub name: String,
     pub icon: String,
-    pub song_ids: Vec<u32>,
+    pub song_ids: Vec<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -35,9 +35,9 @@ pub struct LibraryIndex {
     #[serde(default)]
     pub categories: Vec<CategoryMeta>,
     #[serde(default)]
-    pub favorites: Vec<u32>,
+    pub favorites: Vec<u64>,
     #[serde(default)]
-    pub recent_plays: Vec<u32>,
+    pub recent_plays: Vec<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -45,14 +45,16 @@ pub struct ImportResult {
     pub total: u32,
     pub lyrics: u32,
     pub no_lyrics: u32,
+    #[serde(default)]
+    pub errors: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LibraryData {
     pub songs: Vec<SongMeta>,
     pub categories: Vec<CategoryMeta>,
-    pub favorites: Vec<u32>,
-    pub recent_plays: Vec<u32>,
+    pub favorites: Vec<u64>,
+    pub recent_plays: Vec<u64>,
 }
 
 pub struct Library {
@@ -89,10 +91,19 @@ impl Library {
 
     pub fn load_index(&self) -> LibraryIndex {
         let path = self.metadata_path();
+        let backup_path = self.metadata_path().with_extension("json.bak");
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
                 if let Ok(index) = serde_json::from_str(&content) {
                     return index;
+                }
+            }
+            eprintln!("WARNING: metadata.json corrupted, trying backup");
+            if backup_path.exists() {
+                if let Ok(content) = fs::read_to_string(&backup_path) {
+                    if let Ok(index) = serde_json::from_str(&content) {
+                        return index;
+                    }
                 }
             }
         }
@@ -106,7 +117,10 @@ impl Library {
 
     pub fn save_index(&self, index: &LibraryIndex) -> std::io::Result<()> {
         let content = serde_json::to_string_pretty(index)?;
-        fs::write(self.metadata_path(), content)?;
+        let tmp_path = self.metadata_path().with_extension("json.tmp");
+        fs::write(&tmp_path, &content)?;
+        fs::rename(&tmp_path, self.metadata_path())?;
+        let _ = fs::copy(self.metadata_path(), self.metadata_path().with_extension("json.bak"));
         Ok(())
     }
 
@@ -141,7 +155,7 @@ impl Library {
         false
     }
 
-    fn import_cover_from_source(&self, src: &Path, stem: &str, song_id: u32) -> bool {
+    fn import_cover_from_source(&self, src: &Path, stem: &str, song_id: u64) -> bool {
         let parent = src.parent().unwrap_or(Path::new(""));
         let candidates = [
             format!("{}.jpg", stem),
@@ -246,6 +260,7 @@ impl Library {
         let mut total = 0u32;
         let mut lyrics = 0u32;
         let mut no_lyrics = 0u32;
+        let mut errors = Vec::new();
 
         if dir.is_dir() {
             for entry in fs::read_dir(&dir)? {
@@ -264,7 +279,9 @@ impl Library {
                                             no_lyrics += 1;
                                         }
                                     }
-                                    Err(_) => {}
+                                    Err(e) => {
+                                        errors.push(format!("Failed to import {}: {}", path.display(), e));
+                                    }
                                 }
                             }
                             _ => {}
@@ -275,10 +292,10 @@ impl Library {
         }
 
         self.save_index(&index)?;
-        Ok(ImportResult { total, lyrics, no_lyrics })
+        Ok(ImportResult { total, lyrics, no_lyrics, errors })
     }
 
-    pub fn delete_song(&self, song_id: u32) -> std::io::Result<()> {
+    pub fn delete_song(&self, song_id: u64) -> std::io::Result<()> {
         let mut index = self.load_index();
         let pos = index.songs.iter().position(|s| s.id == song_id);
         if let Some(idx) = pos {
@@ -306,7 +323,7 @@ impl Library {
         Ok(())
     }
 
-    pub fn get_audio_url(&self, song_id: u32) -> Option<String> {
+    pub fn get_audio_url(&self, song_id: u64) -> Option<String> {
         let index = self.load_index();
         let song = index.songs.iter().find(|s| s.id == song_id)?;
         let path = self.songs_dir().join(&song.filename);
@@ -317,7 +334,7 @@ impl Library {
         }
     }
 
-    pub fn get_cover_path(&self, song_id: u32) -> Option<String> {
+    pub fn get_cover_path(&self, song_id: u64) -> Option<String> {
         let jpg = self.covers_dir().join(format!("{}.jpg", song_id));
         if jpg.exists() {
             return Some(jpg.to_string_lossy().to_string());
@@ -362,7 +379,7 @@ impl Library {
         Ok(())
     }
 
-    pub fn add_to_category(&self, category_id: String, song_id: u32) -> std::io::Result<()> {
+    pub fn add_to_category(&self, category_id: String, song_id: u64) -> std::io::Result<()> {
         let mut index = self.load_index();
         if let Some(cat) = index.categories.iter_mut().find(|c| c.id == category_id) {
             if !cat.song_ids.contains(&song_id) {
@@ -373,7 +390,7 @@ impl Library {
         Ok(())
     }
 
-    pub fn remove_from_category(&self, category_id: String, song_id: u32) -> std::io::Result<()> {
+    pub fn remove_from_category(&self, category_id: String, song_id: u64) -> std::io::Result<()> {
         let mut index = self.load_index();
         if let Some(cat) = index.categories.iter_mut().find(|c| c.id == category_id) {
             cat.song_ids.retain(|&id| id != song_id);
@@ -382,7 +399,7 @@ impl Library {
         Ok(())
     }
 
-    pub fn toggle_favorite(&self, song_id: u32) -> std::io::Result<bool> {
+    pub fn toggle_favorite(&self, song_id: u64) -> std::io::Result<bool> {
         let mut index = self.load_index();
         let is_fav = if let Some(pos) = index.favorites.iter().position(|&id| id == song_id) {
             index.favorites.remove(pos);
@@ -395,7 +412,7 @@ impl Library {
         Ok(is_fav)
     }
 
-    pub fn record_play(&self, song_id: u32) -> std::io::Result<()> {
+    pub fn record_play(&self, song_id: u64) -> std::io::Result<()> {
         let mut index = self.load_index();
         index.recent_plays.retain(|&id| id != song_id);
         index.recent_plays.push(song_id);
@@ -409,7 +426,7 @@ impl Library {
         Ok(())
     }
 
-    pub fn import_lyrics(&self, song_id: u32, lrc_content: String) -> std::io::Result<()> {
+    pub fn import_lyrics(&self, song_id: u64, lrc_content: String) -> std::io::Result<()> {
         let mut index = self.load_index();
         if let Some(song) = index.songs.iter_mut().find(|s| s.id == song_id) {
             let stem = PathBuf::from(&song.filename)
@@ -424,7 +441,7 @@ impl Library {
         Ok(())
     }
 
-    pub fn import_cover(&self, song_id: u32, image_path: &str) -> std::io::Result<()> {
+    pub fn import_cover(&self, song_id: u64, image_path: &str) -> std::io::Result<()> {
         let src = Path::new(image_path);
         let ext = match src.extension().and_then(|e| e.to_str()) {
             Some("jpg") | Some("jpeg") => "jpg",
@@ -472,7 +489,7 @@ impl Library {
     }
 }
 
-fn extract_cover(path: &Path, covers_dir: &Path, song_id: u32) -> bool {
+fn extract_cover(path: &Path, covers_dir: &Path, song_id: u64) -> bool {
     let file = match lofty::read_from_path(path) {
         Ok(f) => f,
         Err(_) => return false,

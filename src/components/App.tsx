@@ -13,6 +13,7 @@ import { LyricsSync } from "../core/lyricsSync";
 import { VisualizerData } from "../core/visualizerData";
 import { playerStore, setPlayerStore, addToQueue, addToPlayNext, setQueue, removeFromQueue, loadPlayerState, savePlayerState, type QueueItem } from "../store/playerStore";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { libraryStore, loadLibraryData } from "../store/libraryStore";
@@ -335,7 +336,7 @@ const App: Component = () => {
   useTrayEvents(requestPlay, playNext, playPrev);
   useSleepTimer(engine);
 
-  onMount(() => {
+  onMount(async () => {
     loadPlayerState();
     engine.on("onTimeUpdate", (time) => {
       setPlayerStore("currentTime", time);
@@ -370,6 +371,14 @@ const App: Component = () => {
           });
         }
       }
+    });
+
+    const unlistenSaveState = await listen("save-state", () => {
+      savePlayerState();
+    });
+
+    onCleanup(() => {
+      unlistenSaveState();
     });
 
     onCleanup(() => {

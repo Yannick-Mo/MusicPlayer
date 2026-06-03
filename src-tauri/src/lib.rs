@@ -69,7 +69,7 @@ fn import_folder(state: State<AppState>, path: String) -> Result<ImportResult, S
 }
 
 #[tauri::command]
-fn delete_song(state: State<AppState>, song_id: u32) -> Result<(), String> {
+fn delete_song(state: State<AppState>, song_id: u64) -> Result<(), String> {
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.delete_song(song_id).map_err(|e| e.to_string())
 }
@@ -80,19 +80,19 @@ fn read_text_file(_state: State<AppState>, path: String) -> Result<String, Strin
 }
 
 #[tauri::command]
-fn get_song_path(state: State<AppState>, song_id: u32) -> Result<String, String> {
+fn get_song_path(state: State<AppState>, song_id: u64) -> Result<String, String> {
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.get_audio_url(song_id).ok_or_else(|| "Song not found".to_string())
 }
 
 #[tauri::command]
-fn get_cover_path(state: State<AppState>, song_id: u32) -> Result<String, String> {
+fn get_cover_path(state: State<AppState>, song_id: u64) -> Result<String, String> {
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.get_cover_path(song_id).ok_or_else(|| "No cover".to_string())
 }
 
 #[tauri::command]
-fn get_lyrics(state: State<AppState>, song_id: u32) -> Result<String, String> {
+fn get_lyrics(state: State<AppState>, song_id: u64) -> Result<String, String> {
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     let index = lib.load_index();
     let song = index.songs.iter().find(|s| s.id == song_id)
@@ -125,37 +125,37 @@ fn rename_category(state: State<AppState>, category_id: String, name: String) ->
 }
 
 #[tauri::command]
-fn add_to_category(state: State<AppState>, category_id: String, song_id: u32) -> Result<(), String> {
+fn add_to_category(state: State<AppState>, category_id: String, song_id: u64) -> Result<(), String> {
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.add_to_category(category_id, song_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn remove_from_category(state: State<AppState>, category_id: String, song_id: u32) -> Result<(), String> {
+fn remove_from_category(state: State<AppState>, category_id: String, song_id: u64) -> Result<(), String> {
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.remove_from_category(category_id, song_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn toggle_favorite(state: State<AppState>, song_id: u32) -> Result<bool, String> {
+fn toggle_favorite(state: State<AppState>, song_id: u64) -> Result<bool, String> {
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.toggle_favorite(song_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn record_play(state: State<AppState>, song_id: u32) -> Result<(), String> {
+fn record_play(state: State<AppState>, song_id: u64) -> Result<(), String> {
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.record_play(song_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn import_lyrics(state: State<AppState>, song_id: u32, lrc_content: String) -> Result<(), String> {
+fn import_lyrics(state: State<AppState>, song_id: u64, lrc_content: String) -> Result<(), String> {
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.import_lyrics(song_id, lrc_content).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn import_cover(state: State<AppState>, song_id: u32, image_path: String) -> Result<(), String> {
+fn import_cover(state: State<AppState>, song_id: u64, image_path: String) -> Result<(), String> {
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.import_cover(song_id, &image_path).map_err(|e| e.to_string())
 }
@@ -317,6 +317,8 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.emit("save-state", ());
+                std::thread::sleep(std::time::Duration::from_millis(50));
                 api.prevent_close();
                 let _ = window.hide();
             }
