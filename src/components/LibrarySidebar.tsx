@@ -13,6 +13,28 @@ const LibrarySidebar: Component = () => {
   const [width, setWidth] = createSignal(180);
   const savedWidth = typeof window !== "undefined" ? localStorage.getItem(SIDEBAR_WIDTH_KEY) : null;
   if (savedWidth) setWidth(Math.max(120, Math.min(400, parseInt(savedWidth) || 180)));
+  const [scrollTop, setScrollTop] = createSignal(0);
+  const [scrollH, setScrollH] = createSignal(0);
+  const [clientH, setClientH] = createSignal(0);
+  let scrollRef: HTMLDivElement | undefined;
+
+  const thumbSize = () => {
+    const ch = clientH(), sh = scrollH();
+    if (sh <= ch) return 0;
+    return Math.max(4, (ch / sh) * ch);
+  };
+  const thumbOffset = () => {
+    const ch = clientH(), sh = scrollH(), st = scrollTop();
+    if (sh <= ch) return 0;
+    return (st / (sh - ch)) * (ch - thumbSize());
+  };
+  const updateScroll = () => {
+    if (scrollRef) {
+      setScrollTop(scrollRef.scrollTop);
+      setScrollH(scrollRef.scrollHeight);
+      setClientH(scrollRef.clientHeight);
+    }
+  };
 
   function startDrag(e: MouseEvent) {
     e.preventDefault();
@@ -63,6 +85,7 @@ const LibrarySidebar: Component = () => {
 
   onMount(() => {
     document.addEventListener("click", closeCtxMenu);
+    updateScroll();
   });
   onCleanup(() => {
     document.removeEventListener("click", closeCtxMenu);
@@ -77,33 +100,37 @@ const LibrarySidebar: Component = () => {
         📚 我的歌单
       </div>
 
-      <style>{`.sidebar-scroll{overflow-y:overlay;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.12) transparent;-ms-overflow-style:none}.sidebar-scroll::-webkit-scrollbar{width:1px}.sidebar-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:1px}`}</style>
-      <div class="flex-1 min-h-0 sidebar-scroll" style="margin-right:-15px;padding-right:19px;">
-        {libraryStore.categories.map((cat) => {
-          const count = cat.id === "all" ? libraryStore.songs.length : cat.songIds.length;
-          const isActive = libraryStore.activeCategoryId === cat.id;
-          return (
-            <div
-              onClick={() => setLibraryStore("activeCategoryId", cat.id)}
-              onContextMenu={(e) => {
-                if (cat.type === "user") {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setCtxMenu({ x: e.clientX, y: e.clientY, catId: cat.id });
-                }
-              }}
-              class="flex items-center gap-[7px] px-3 py-2.5 rounded-md text-sm cursor-pointer mb-0.5 hover:bg-white hover:bg-opacity-5"
-              style={{
-                background: isActive ? "rgba(var(--accent-rgb), 0.15)" : undefined,
-                color: isActive ? "#ffffff" : "rgba(255,255,255,0.7)",
-              }}
-            >
-              <span>{cat.icon}</span>
-              <span>{cat.name}</span>
-              <span class="ml-auto text-xs" style="color: rgba(255,255,255,0.35);">{count}</span>
-            </div>
-          );
-        })}
+      <div class="flex-1 min-h-0 relative" style="margin-right:-16px;">
+        <div ref={scrollRef} class="absolute inset-0 overflow-y-auto pr-[17px]" style="scrollbar-width:none;-ms-overflow-style:none;" onScroll={updateScroll}>
+          {libraryStore.categories.map((cat) => {
+            const count = cat.id === "all" ? libraryStore.songs.length : cat.songIds.length;
+            const isActive = libraryStore.activeCategoryId === cat.id;
+            return (
+              <div
+                onClick={() => setLibraryStore("activeCategoryId", cat.id)}
+                onContextMenu={(e) => {
+                  if (cat.type === "user") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setCtxMenu({ x: e.clientX, y: e.clientY, catId: cat.id });
+                  }
+                }}
+                class="flex items-center gap-[7px] px-3 py-2.5 rounded-md text-sm cursor-pointer mb-0.5 hover:bg-white hover:bg-opacity-5"
+                style={{
+                  background: isActive ? "rgba(var(--accent-rgb), 0.15)" : undefined,
+                  color: isActive ? "#ffffff" : "rgba(255,255,255,0.7)",
+                }}
+              >
+                <span>{cat.icon}</span>
+                <span>{cat.name}</span>
+                <span class="ml-auto text-xs" style="color: rgba(255,255,255,0.35);">{count}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div class="absolute right-0 top-0 w-px pointer-events-none" style={{ height: `${clientH()}px`, opacity: scrollH() > clientH() ? 0.6 : 0, transition: "opacity 0.15s" }}>
+          <div class="w-px rounded-full" style={{ height: `${thumbSize()}px`, transform: `translateY(${thumbOffset()}px)`, background: "rgba(255,255,255,0.2)" }} />
+        </div>
       </div>
 
       <div class="mt-auto pt-3 flex-shrink-0">
