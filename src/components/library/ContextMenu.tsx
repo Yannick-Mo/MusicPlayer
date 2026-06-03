@@ -20,6 +20,7 @@ const ContextMenu: Component<ContextMenuProps> = (p) => {
 
   return (
     <>
+      <style>{`.cm-item:hover,.cm-sub-item:hover{background:rgba(var(--accent-rgb,99,102,241),0.15)}`}</style>
       {p.song && p.position && (
         <div
           ref={p.menuRef}
@@ -34,19 +35,19 @@ const ContextMenu: Component<ContextMenuProps> = (p) => {
         >
           <div
             onClick={() => { p.onPlayNext(p.song!); p.onClose(); }}
-            class="px-3 py-2 text-xs cursor-pointer whitespace-nowrap hover:bg-white hover:bg-opacity-5 rounded"
+            class="cm-item px-3 py-2 text-xs cursor-pointer whitespace-nowrap rounded"
             style="color: rgba(255,255,255,0.6);"
           >➡️ 下一首播放</div>
 
           <div class="relative">
             <div
               onClick={(e) => { e.stopPropagation(); setPlaylistSubOpen((v) => !v); }}
-              class="px-3 py-2 text-xs cursor-pointer whitespace-nowrap hover:bg-white hover:bg-opacity-5 rounded"
+              class="cm-item px-3 py-2 text-xs cursor-pointer whitespace-nowrap rounded"
               style="color: rgba(255,255,255,0.6);"
             >➕ 添加到歌单</div>
             {playlistSubOpen() && (
               <div
-                class="absolute right-full top-0 mr-1 z-[9999] rounded-lg py-1 min-w-[110px]"
+                class="absolute right-full top-0 mr-1 z-[9999] rounded-lg py-1 min-w-[110px] max-h-48 overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
                 style={{
                   background: "rgba(15,15,20,0.95)",
@@ -57,7 +58,7 @@ const ContextMenu: Component<ContextMenuProps> = (p) => {
                 {p.userPlaylists.length > 0 ? p.userPlaylists.map((pl) => (
                   <div
                     onClick={() => { p.onAddToPlaylist(pl.id, p.song!.id); p.onClose(); }}
-                    class="px-3 py-1.5 text-xs cursor-pointer truncate hover:bg-white hover:bg-opacity-5"
+                    class="cm-sub-item px-3 py-1.5 text-xs cursor-pointer truncate"
                     style="color: rgba(255,255,255,0.65);"
                   >{pl.name}</div>
                 )) : (
@@ -73,13 +74,13 @@ const ContextMenu: Component<ContextMenuProps> = (p) => {
               p.onClose();
               await p.onImportCover(s.id);
             }}
-            class="px-3 py-2 text-xs cursor-pointer whitespace-nowrap hover:bg-white hover:bg-opacity-5 rounded"
+            class="cm-item px-3 py-2 text-xs cursor-pointer whitespace-nowrap rounded"
             style="color: rgba(255,255,255,0.6);"
           >🖼️ 导入封面</div>
 
           <div
             onClick={() => { p.onBatchSelect(); p.onClose(); }}
-            class="px-3 py-2 text-xs cursor-pointer whitespace-nowrap hover:bg-white hover:bg-opacity-5 rounded"
+            class="cm-item px-3 py-2 text-xs cursor-pointer whitespace-nowrap rounded"
             style="color: rgba(255,255,255,0.6);"
           >📋 批量选择</div>
 
@@ -90,7 +91,7 @@ const ContextMenu: Component<ContextMenuProps> = (p) => {
               await p.onDelete(p.song!.id);
               p.onClose();
             }}
-            class="px-3 py-2 text-xs cursor-pointer whitespace-nowrap hover:bg-white hover:bg-opacity-5 rounded"
+            class="cm-item px-3 py-2 text-xs cursor-pointer whitespace-nowrap rounded"
             style="color: #f87171;"
           >🗑️ 删除</div>
         </div>
