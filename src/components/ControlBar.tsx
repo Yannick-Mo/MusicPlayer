@@ -268,6 +268,7 @@ const ControlBar: Component<ControlBarProps> = (props) => {
               <span>⏱</span>
               {remainingMs() >= 0 && <span class="text-[11px] font-mono">{formatTimer(remainingMs())}</span>}
             </button>
+            <style>{`.timer-item:hover{background:rgba(var(--accent-rgb,99,102,241),0.15)}`}</style>
             {showTimerPopup() && (
               <>
                 <div class="fixed inset-0 z-10" onClick={() => setShowTimerPopup(false)} />
@@ -283,14 +284,14 @@ const ControlBar: Component<ControlBarProps> = (props) => {
                   {timerPresets.map((p) => (
                     <button
                       onClick={() => setSleepTimer(p.value)}
-                      class="w-full text-left px-3 py-1.5 text-xs transition-colors hover:bg-white/5"
+                      class="timer-item w-full text-left px-3 py-1.5 text-xs transition-colors"
                       style="color: rgba(255,255,255,0.75);"
                     >{p.label}</button>
                   ))}
                   <div class="h-px mx-2 my-1" style="background: rgba(255,255,255,0.06);" />
                   <button
                     onClick={clearSleepTimer}
-                    class="w-full text-left px-3 py-1.5 text-xs transition-colors hover:bg-white/5"
+                    class="timer-item w-full text-left px-3 py-1.5 text-xs transition-colors"
                     style="color: rgba(255,255,255,0.4);"
                   >取消定时</button>
                 </div>

@@ -24,7 +24,7 @@ const ContextMenu: Component<ContextMenuProps> = (p) => {
       {p.song && p.position && (
         <div
           ref={p.menuRef}
-          class="fixed z-[9999] rounded-lg py-1 min-w-[150px]"
+          class="fixed z-[9999] rounded-lg py-1 px-1 min-w-[150px]"
           style={{
             left: `${p.position.x}px`,
             top: `${p.position.y}px`,

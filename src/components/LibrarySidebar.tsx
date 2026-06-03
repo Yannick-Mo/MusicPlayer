@@ -146,7 +146,7 @@ const LibrarySidebar: Component = () => {
       <style>{`.scm-item:hover{background:rgba(var(--accent-rgb,99,102,241),0.15)}`}</style>
       {ctxMenu() && (
         <div
-          class="fixed z-50 rounded-lg py-1 min-w-[130px]"
+          class="fixed z-50 rounded-lg py-1 px-1 min-w-[130px]"
           style={{
             left: `${ctxMenu()!.x}px`,
             top: `${ctxMenu()!.y}px`,
@@ -171,7 +171,7 @@ const LibrarySidebar: Component = () => {
         >
           <div
             class="rounded-xl p-5 flex flex-col gap-3.5 min-w-[280px]"
-            style="background: rgba(10,10,15,0.92); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(24px);"
+            style="background: rgba(15,15,22,0.3); border: 1px solid rgba(255,255,255,0.08);"
           >
             <div class="text-xs font-semibold" style="color: rgba(255,255,255,0.85);">确认删除</div>
             <div class="text-[11px]" style="color: rgba(255,255,255,0.5);">确定要删除这个歌单吗？此操作不可撤销。</div>
@@ -215,7 +215,7 @@ const LibrarySidebar: Component = () => {
         >
           <div
             class="rounded-xl p-5 flex flex-col gap-3.5 min-w-[280px]"
-            style="background: rgba(10,10,15,0.92); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(24px);"
+            style="background: rgba(15,15,22,0.3); border: 1px solid rgba(255,255,255,0.08);"
           >
             <div class="text-xs font-semibold" style="color: rgba(255,255,255,0.85);">新建歌单</div>
             <input
