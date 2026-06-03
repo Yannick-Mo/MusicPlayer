@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct MigrationProgress {
@@ -378,6 +378,18 @@ pub fn start_migration(
             });
             return;
         }
+
+        // Update Library in memory and reset migration flag
+        let state = app_handle.state::<crate::AppState>();
+        if let Ok(mut lib) = state.library.lock() {
+            lib.base_path = new_base.clone();
+        }
+        if let Ok(mut m) = state.migrating.lock() {
+            *m = false;
+        }
+
+        // Delete old library
+        let _ = std::fs::remove_dir_all(&old_base);
 
         emit_progress(&app_handle, &MigrationProgress {
             phase: "completed".to_string(),

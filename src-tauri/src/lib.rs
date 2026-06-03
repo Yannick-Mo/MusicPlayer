@@ -49,13 +49,15 @@ fn set_window_corner(app: tauri::AppHandle, value: u32) {
     set_window_corner_preference(&app, value);
 }
 
-struct AppState {
-    library: Mutex<Library>,
-    app_data_dir: PathBuf,
+pub(crate) struct AppState {
+    pub(crate) library: Mutex<Library>,
+    pub(crate) app_data_dir: PathBuf,
+    pub(crate) migrating: Mutex<bool>,
 }
 
-fn check_not_migrating() -> Result<(), String> {
-    Ok(())
+fn check_not_migrating(state: &AppState) -> Result<(), String> {
+    let m = state.migrating.lock().map_err(|e| e.to_string())?;
+    if *m { Err("正在迁移中，请等待完成后再操作".into()) } else { Ok(()) }
 }
 
 #[tauri::command]
@@ -68,18 +70,21 @@ fn scan_library(state: State<AppState>) -> Result<Vec<SongMeta>, String> {
 
 #[tauri::command]
 fn import_song(state: State<AppState>, path: String) -> Result<SongMeta, String> {
+    check_not_migrating(&state)?;
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.import_song(&path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn import_folder(state: State<AppState>, path: String) -> Result<ImportResult, String> {
+    check_not_migrating(&state)?;
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.import_folder(&path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn delete_song(state: State<AppState>, song_id: u64) -> Result<(), String> {
+    check_not_migrating(&state)?;
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.delete_song(song_id).map_err(|e| e.to_string())
 }
@@ -118,66 +123,77 @@ fn get_library_data(state: State<AppState>) -> Result<LibraryData, String> {
 
 #[tauri::command]
 fn create_category(state: State<AppState>, name: String, icon: String) -> Result<CategoryMeta, String> {
+    check_not_migrating(&state)?;
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.create_category(name, icon).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn delete_category(state: State<AppState>, category_id: String) -> Result<(), String> {
+    check_not_migrating(&state)?;
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.delete_category(category_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn rename_category(state: State<AppState>, category_id: String, name: String) -> Result<(), String> {
+    check_not_migrating(&state)?;
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.rename_category(category_id, name).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn add_to_category(state: State<AppState>, category_id: String, song_id: u64) -> Result<(), String> {
+    check_not_migrating(&state)?;
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.add_to_category(category_id, song_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn remove_from_category(state: State<AppState>, category_id: String, song_id: u64) -> Result<(), String> {
+    check_not_migrating(&state)?;
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.remove_from_category(category_id, song_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn toggle_favorite(state: State<AppState>, song_id: u64) -> Result<bool, String> {
+    check_not_migrating(&state)?;
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.toggle_favorite(song_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn record_play(state: State<AppState>, song_id: u64) -> Result<(), String> {
+    check_not_migrating(&state)?;
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.record_play(song_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn import_lyrics(state: State<AppState>, song_id: u64, lrc_content: String) -> Result<(), String> {
+    check_not_migrating(&state)?;
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.import_lyrics(song_id, lrc_content).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn import_cover(state: State<AppState>, song_id: u64, image_path: String) -> Result<(), String> {
+    check_not_migrating(&state)?;
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.import_cover(song_id, &image_path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn set_background_image(state: State<AppState>, source_path: String) -> Result<String, String> {
+    check_not_migrating(&state)?;
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.set_background_image(&source_path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn clear_background_image(state: State<AppState>) -> Result<(), String> {
+    check_not_migrating(&state)?;
     let lib = state.library.lock().map_err(|e| e.to_string())?;
     lib.clear_background_image().map_err(|e| e.to_string())
 }
@@ -200,6 +216,13 @@ fn start_migration(
     state: State<AppState>,
     new_path: String,
 ) -> Result<(), String> {
+    // Set migrating flag to block writes during migration
+    {
+        let mut m = state.migrating.lock().map_err(|e| e.to_string())?;
+        if *m { return Err("已有迁移任务进行中".into()); }
+        *m = true;
+    }
+
     let app_data_dir = state.app_data_dir.clone();
     let old_base = {
         let lib = state.library.lock().map_err(|e| e.to_string())?;
@@ -268,6 +291,7 @@ pub fn run() {
             app.manage(AppState {
                 library: Mutex::new(library),
                 app_data_dir: app_data.clone(),
+                migrating: Mutex::new(false),
             });
             let _ = app.notification().request_permission();
 
