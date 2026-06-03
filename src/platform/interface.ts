@@ -31,6 +31,18 @@ export interface ImportResult {
   no_lyrics: number;
 }
 
+export interface AppConfig {
+  library_path: string;
+}
+
+export interface MigrationProgress {
+  phase: "counting" | "copying" | "completed" | "cancelled" | "error";
+  current: number;
+  total: number;
+  current_file: string;
+  error?: string;
+}
+
 export interface IPlatform {
   readTextFile(path: string): Promise<string>;
   getAudioUrl(path: string): string;
@@ -54,4 +66,8 @@ export interface IPlatform {
   setBackgroundImage(sourcePath: string): Promise<string>;
   clearBackgroundImage(): Promise<void>;
   showNotification(title: string, body: string): Promise<void>;
+  getConfig(): Promise<AppConfig>;
+  getLibraryPath(): Promise<string>;
+  startMigration(newPath: string): Promise<void>;
+  cancelMigration(): Promise<void>;
 }

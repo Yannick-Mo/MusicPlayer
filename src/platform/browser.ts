@@ -1,4 +1,4 @@
-import type { IPlatform, SongFileInfo, CategoryInfo, LibraryData, ImportResult } from "./interface";
+import type { IPlatform, SongFileInfo, CategoryInfo, LibraryData, ImportResult, AppConfig, MigrationProgress } from "./interface";
 
 export const browserPlatform: IPlatform = {
   async readTextFile(path: string): Promise<string> {
@@ -89,5 +89,21 @@ export const browserPlatform: IPlatform = {
 
   async showNotification(_title: string, _body: string): Promise<void> {
     // Browser notification not supported
+  },
+
+  async getConfig(): Promise<AppConfig> {
+    return { library_path: "" };
+  },
+
+  async getLibraryPath(): Promise<string> {
+    return "";
+  },
+
+  async startMigration(_newPath: string): Promise<void> {
+    throw new Error("startMigration not available in browser");
+  },
+
+  async cancelMigration(): Promise<void> {
+    throw new Error("cancelMigration not available in browser");
   },
 };

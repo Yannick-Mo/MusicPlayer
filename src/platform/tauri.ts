@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
-import type { IPlatform, SongFileInfo, CategoryInfo, LibraryData, ImportResult } from "./interface";
+import type { IPlatform, SongFileInfo, CategoryInfo, LibraryData, ImportResult, AppConfig, MigrationProgress } from "./interface";
 
 export const tauriPlatform: IPlatform = {
   async readTextFile(path: string): Promise<string> {
@@ -97,5 +97,21 @@ export const tauriPlatform: IPlatform = {
     if (permitted) {
       sendNotification({ title, body });
     }
+  },
+
+  async getConfig(): Promise<AppConfig> {
+    return invoke("get_config");
+  },
+
+  async getLibraryPath(): Promise<string> {
+    return invoke("get_library_path");
+  },
+
+  async startMigration(newPath: string): Promise<void> {
+    return invoke("start_migration", { newPath });
+  },
+
+  async cancelMigration(): Promise<void> {
+    return invoke("cancel_migration");
   },
 };
