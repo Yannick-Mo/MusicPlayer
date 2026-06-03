@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use lofty::file::AudioFile;
 use lofty::file::TaggedFileExt;
+use lofty::tag::Accessor;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SongMeta {
@@ -228,12 +229,27 @@ impl Library {
 
         let duration = get_audio_duration(&src).unwrap_or(0);
 
+        // Read metadata tags from audio file
+        let (meta_title, meta_artist, meta_album) = if let Ok(file) = lofty::read_from_path(&src) {
+            if let Some(tag) = file.tags().first() {
+                (
+                    tag.title().map(|c| c.to_string()).unwrap_or(stem.clone()),
+                    tag.artist().map(|c| c.to_string()).unwrap_or_else(|| "未知艺术家".to_string()),
+                    tag.album().map(|c| c.to_string()).unwrap_or_else(|| "-".to_string()),
+                )
+            } else {
+                (stem.clone(), "未知艺术家".to_string(), "-".to_string())
+            }
+        } else {
+            (stem.clone(), "未知艺术家".to_string(), "-".to_string())
+        };
+
         let meta = SongMeta {
             id: new_id,
             filename: filename.clone(),
-            title: stem.clone(),
-            artist: "未知艺术家".to_string(),
-            album: "-".to_string(),
+            title: meta_title,
+            artist: meta_artist,
+            album: meta_album,
             duration,
             format,
             has_lyrics: has_lrc,
