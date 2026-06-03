@@ -128,8 +128,8 @@ const LibrarySidebar: Component = () => {
             );
           })}
         </div>
-        <div class="absolute right-0 top-0 w-px pointer-events-none" style={{ height: `${clientH()}px`, opacity: scrollH() > clientH() ? 0.6 : 0, transition: "opacity 0.15s" }}>
-          <div class="w-px rounded-full" style={{ height: `${thumbSize()}px`, transform: `translateY(${thumbOffset()}px)`, background: "rgba(255,255,255,0.2)" }} />
+        <div class="absolute right-0 top-0 w-[2px] pointer-events-none" style={{ height: `${clientH()}px`, opacity: scrollH() > clientH() ? 0.6 : 0, transition: "opacity 0.15s" }}>
+          <div class="w-[2px] rounded-full" style={{ height: `${thumbSize()}px`, transform: `translateY(${thumbOffset()}px)`, background: "rgba(255,255,255,0.2)" }} />
         </div>
       </div>
 
