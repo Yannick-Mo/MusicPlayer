@@ -1,13 +1,18 @@
 mod library;
+mod config;
+mod migration;
 
 use library::{Library, ImportResult, SongMeta, CategoryMeta, LibraryData};
-use tauri::State;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+use std::path::PathBuf;
+use std::fs;
 use tauri_plugin_notification::NotificationExt;
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager,
+    Emitter, Manager, State,
 };
 
 #[cfg(target_os = "windows")]
@@ -46,6 +51,11 @@ fn set_window_corner(app: tauri::AppHandle, value: u32) {
 
 struct AppState {
     library: Mutex<Library>,
+    app_data_dir: PathBuf,
+}
+
+fn check_not_migrating() -> Result<(), String> {
+    Ok(())
 }
 
 #[tauri::command]
@@ -172,6 +182,42 @@ fn clear_background_image(state: State<AppState>) -> Result<(), String> {
     lib.clear_background_image().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn get_config(state: State<AppState>) -> Result<config::AppConfig, String> {
+    let dir = state.app_data_dir.clone();
+    Ok(config::load_config(&dir))
+}
+
+#[tauri::command]
+fn get_library_path(state: State<AppState>) -> Result<String, String> {
+    let lib = state.library.lock().map_err(|e| e.to_string())?;
+    Ok(lib.base_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn start_migration(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+    new_path: String,
+) -> Result<(), String> {
+    let app_data_dir = state.app_data_dir.clone();
+    let old_base = {
+        let lib = state.library.lock().map_err(|e| e.to_string())?;
+        lib.base_path.clone()
+    };
+    let new_base = PathBuf::from(&new_path);
+    let cancel = Arc::new(AtomicBool::new(false));
+
+    migration::start_migration(app.clone(), app_data_dir, old_base, new_base, cancel);
+
+    Ok(())
+}
+
+#[tauri::command]
+fn cancel_migration() -> Result<(), String> {
+    Err("取消功能暂未实现".into())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -200,16 +246,28 @@ pub fn run() {
             set_background_image,
             clear_background_image,
             set_window_corner,
+            get_config,
+            get_library_path,
+            start_migration,
+            cancel_migration,
         ])
         .setup(|app| {
             // Initialize library with Tauri app data dir so asset protocol scope matches
             let app_data = app.path().app_data_dir().expect("failed to get app data dir");
-            let lib_path = app_data.join("library");
+            fs::create_dir_all(&app_data).ok();
+
+            let config = config::load_config(&app_data);
+            let lib_path = PathBuf::from(&config.library_path);
             let library = Library::with_base_path(lib_path.clone());
             library.ensure_dirs().expect("failed to create library dirs");
 
+            if !config::config_exists(&app_data) {
+                let _ = config::save_config(&app_data, &config);
+            }
+
             app.manage(AppState {
                 library: Mutex::new(library),
+                app_data_dir: app_data.clone(),
             });
             let _ = app.notification().request_permission();
 
