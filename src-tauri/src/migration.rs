@@ -54,6 +54,26 @@ fn count_total(old_base: &Path) -> u64 {
     total
 }
 
+fn cancel_or_err(app_handle: &AppHandle, result: Result<(), &str>, current: u64, total: u64) -> bool {
+    match result {
+        Err("cancelled") => {
+            emit_progress(app_handle, &MigrationProgress {
+                phase: "cancelled".to_string(), current, total,
+                current_file: String::new(), error: None,
+            });
+            true
+        }
+        Err(msg) => {
+            emit_progress(app_handle, &MigrationProgress {
+                phase: "error".to_string(), current, total,
+                current_file: String::new(), error: Some(msg.to_string()),
+            });
+            true
+        }
+        Ok(()) => false,
+    }
+}
+
 fn copy_file_with_progress(
     app_handle: &AppHandle,
     src: &Path,
@@ -61,9 +81,9 @@ fn copy_file_with_progress(
     current: &mut u64,
     total: u64,
     cancel: &AtomicBool,
-) -> Result<(), String> {
+) -> Result<(), &'static str> {
     if cancel.load(Ordering::SeqCst) {
-        return Err("cancelled".to_string());
+        return Err("cancelled");
     }
 
     *current += 1;
@@ -75,19 +95,11 @@ fn copy_file_with_progress(
         phase: "copying".to_string(),
         current: *current,
         total,
-        current_file: filename.clone(),
+        current_file: filename,
         error: None,
     });
 
-    if filename == "metadata.json" {
-        let tmp_path = dst.with_extension("json.tmp");
-        std::fs::write(&tmp_path, &std::fs::read(src).map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
-        std::fs::rename(&tmp_path, dst).map_err(|e| e.to_string())?;
-    } else {
-        std::fs::copy(src, dst).map_err(|e| e.to_string())?;
-    }
-
+    std::fs::copy(src, dst).map_err(|_| "文件复制失败")?;
     Ok(())
 }
 
@@ -98,12 +110,12 @@ fn copy_dir(
     current: &mut u64,
     total: u64,
     cancel: &AtomicBool,
-) -> Result<(), String> {
+) -> Result<(), &'static str> {
     if !src_dir.is_dir() {
         return Ok(());
     }
 
-    std::fs::create_dir_all(dst_dir).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(dst_dir).map_err(|_| "无法创建目标目录")?;
 
     let entries: Vec<_> = match std::fs::read_dir(src_dir) {
         Ok(entries) => entries
@@ -114,24 +126,10 @@ fn copy_dir(
     };
 
     for entry in entries {
-        if cancel.load(Ordering::SeqCst) {
-            return Err("cancelled".to_string());
-        }
-
         let src = entry.path();
         let filename = entry.file_name();
         let dst = dst_dir.join(&filename);
-
-        *current += 1;
-        emit_progress(app_handle, &MigrationProgress {
-            phase: "copying".to_string(),
-            current: *current,
-            total,
-            current_file: filename.to_string_lossy().to_string(),
-            error: None,
-        });
-
-        std::fs::copy(&src, &dst).map_err(|e| e.to_string())?;
+        copy_file_with_progress(app_handle, &src, &dst, current, total, cancel)?;
     }
 
     Ok(())
@@ -303,122 +301,28 @@ pub fn start_migration(
 
         // Copy metadata.json.bak
         let bak_src = old_base.join("metadata.json.bak");
-        if bak_src.exists() {
-            if let Err(e) = copy_file_with_progress(
-                &app_handle,
-                &bak_src,
-                &new_base.join("metadata.json.bak"),
-                &mut current,
-                total,
-                &cancel,
-            ) {
-                if e == "cancelled" {
-                    emit_progress(&app_handle, &MigrationProgress {
-                        phase: "cancelled".to_string(),
-                        current,
-                        total,
-                        current_file: String::new(),
-                        error: None,
-                    });
-                } else {
-                    emit_progress(&app_handle, &MigrationProgress {
-                        phase: "error".to_string(),
-                        current,
-                        total,
-                        current_file: String::new(),
-                        error: Some(e),
-                    });
-                }
-                return;
-            }
-        }
+        if bak_src.exists() && cancel_or_err(&app_handle,
+            copy_file_with_progress(&app_handle, &bak_src, &new_base.join("metadata.json.bak"), &mut current, total, &cancel),
+            current, total,
+        ) { return; }
 
         // Copy songs dir
-        if let Err(e) = copy_dir(
-            &app_handle,
-            &old_base.join("songs"),
-            &new_base.join("songs"),
-            &mut current,
-            total,
-            &cancel,
-        ) {
-            if e == "cancelled" {
-                emit_progress(&app_handle, &MigrationProgress {
-                    phase: "cancelled".to_string(),
-                    current,
-                    total,
-                    current_file: String::new(),
-                    error: None,
-                });
-            } else {
-                emit_progress(&app_handle, &MigrationProgress {
-                    phase: "error".to_string(),
-                    current,
-                    total,
-                    current_file: String::new(),
-                    error: Some(e),
-                });
-            }
-            return;
-        }
+        if cancel_or_err(&app_handle,
+            copy_dir(&app_handle, &old_base.join("songs"), &new_base.join("songs"), &mut current, total, &cancel),
+            current, total,
+        ) { return; }
 
         // Copy lyrics dir
-        if let Err(e) = copy_dir(
-            &app_handle,
-            &old_base.join("lyrics"),
-            &new_base.join("lyrics"),
-            &mut current,
-            total,
-            &cancel,
-        ) {
-            if e == "cancelled" {
-                emit_progress(&app_handle, &MigrationProgress {
-                    phase: "cancelled".to_string(),
-                    current,
-                    total,
-                    current_file: String::new(),
-                    error: None,
-                });
-            } else {
-                emit_progress(&app_handle, &MigrationProgress {
-                    phase: "error".to_string(),
-                    current,
-                    total,
-                    current_file: String::new(),
-                    error: Some(e),
-                });
-            }
-            return;
-        }
+        if cancel_or_err(&app_handle,
+            copy_dir(&app_handle, &old_base.join("lyrics"), &new_base.join("lyrics"), &mut current, total, &cancel),
+            current, total,
+        ) { return; }
 
         // Copy covers dir
-        if let Err(e) = copy_dir(
-            &app_handle,
-            &old_base.join("covers"),
-            &new_base.join("covers"),
-            &mut current,
-            total,
-            &cancel,
-        ) {
-            if e == "cancelled" {
-                emit_progress(&app_handle, &MigrationProgress {
-                    phase: "cancelled".to_string(),
-                    current,
-                    total,
-                    current_file: String::new(),
-                    error: None,
-                });
-            } else {
-                emit_progress(&app_handle, &MigrationProgress {
-                    phase: "error".to_string(),
-                    current,
-                    total,
-                    current_file: String::new(),
-                    error: Some(e),
-                });
-            }
-            return;
-        }
+        if cancel_or_err(&app_handle,
+            copy_dir(&app_handle, &old_base.join("covers"), &new_base.join("covers"), &mut current, total, &cancel),
+            current, total,
+        ) { return; }
 
         // Copy background.* files from old_base root
         if let Ok(entries) = std::fs::read_dir(&old_base) {
