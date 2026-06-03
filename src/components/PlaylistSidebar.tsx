@@ -45,6 +45,13 @@ const PlaylistSidebar: Component<PlaylistSidebarProps> = (props) => {
   const [width, setWidth] = createSignal(320);
   const savedWidth = typeof window !== "undefined" ? localStorage.getItem(SIDEBAR_WIDTH_KEY) : null;
   if (savedWidth) setWidth(Math.max(200, Math.min(600, parseInt(savedWidth) || 320)));
+  const [qScrollTop, setQScrollTop] = createSignal(0);
+  const [qScrollH, setQScrollH] = createSignal(0);
+  const [qClientH, setQClientH] = createSignal(0);
+  let qScrollRef: HTMLDivElement | undefined;
+  const qThumbSize = () => { const ch = qClientH(), sh = qScrollH(); return sh <= ch ? 0 : Math.max(4, (ch / sh) * ch); };
+  const qThumbOff = () => { const ch = qClientH(), sh = qScrollH(), st = qScrollTop(); return sh <= ch ? 0 : (st / (sh - ch)) * (ch - qThumbSize()); };
+  const qUpdateScroll = () => { if (qScrollRef) { setQScrollTop(qScrollRef.scrollTop); setQScrollH(qScrollRef.scrollHeight); setQClientH(qScrollRef.clientHeight); } };
 
   function startDrag(e: MouseEvent) {
     e.preventDefault();
@@ -139,73 +146,78 @@ const PlaylistSidebar: Component<PlaylistSidebarProps> = (props) => {
             </div>
           </div>
 
-          <style>{`.queue-scroll{overflow-y:auto}.queue-scroll::-webkit-scrollbar{width:2px}.queue-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:1px}.queue-scroll{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.12) transparent}`}</style>
-          <div class="flex-1 overflow-y-auto py-1 queue-scroll">
-            {filteredSongs().map(({ song, index }) => {
-              const playing = index === playerStore.queueIndex;
-              const isDragTarget = dropIndex() === index;
-              return (
-                <div
-                  draggable
-                  onClick={() => handlePlay(index)}
-                  onDragStart={() => setDragIndex(index)}
-                  onDragOver={(e) => { e.preventDefault(); setDropIndex(index); }}
-                  onDragLeave={() => setDropIndex(null)}
-                  onDrop={() => {
-                    const from = dragIndex();
-                    if (from === null || from === index) return;
-                    const q = [...playerStore.queue];
-                    const [moved] = q.splice(from, 1);
-                    const to = from < index ? index - 1 : index;
-                    q.splice(to, 0, moved);
-                    setPlayerStore("queue", q);
-                    setPlayerStore("queueIndex", playerStore.queueIndex === from ? to : playerStore.queueIndex > from && playerStore.queueIndex <= to ? playerStore.queueIndex - 1 : playerStore.queueIndex < from && playerStore.queueIndex >= to ? playerStore.queueIndex + 1 : playerStore.queueIndex);
-                    savePlayerState();
-                    setDragIndex(null);
-                    setDropIndex(null);
-                  }}
-                  onDragEnd={() => { setDragIndex(null); setDropIndex(null); }}
-                  class="flex items-center px-4 py-2.5 cursor-pointer transition-colors group hover:bg-white hover:bg-opacity-5"
-                  style={{
-                    background: playing ? "rgba(var(--accent-rgb), 0.1)" : undefined,
-                    "border-left": playing ? "3px solid var(--accent-light)" : "3px solid transparent",
-                    "border-top": isDragTarget && dragIndex() !== index ? "2px solid var(--accent-light)" : "2px solid transparent",
-                  }}
-                >
-                  <QueueCover id={song.id} playing={playing} />
-                  <div class="flex-1 min-w-0">
+                    <style>{`.queue-scroll{overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}.queue-scroll::-webkit-scrollbar{width:0}`}</style>
+          <div class="flex-1 relative">
+            <div ref={qScrollRef} class="absolute inset-0 queue-scroll" onScroll={qUpdateScroll}>
+              <div class="py-1">
+                {filteredSongs().map(({ song, index }) => {
+                  const playing = index === playerStore.queueIndex;
+                  const isDragTarget = dropIndex() === index;
+                  return (
                     <div
-                      class="text-xs truncate"
-                      style={{ color: playing ? "#ffffff" : "rgba(255,255,255,0.85)" }}
+                      draggable
+                      onClick={() => handlePlay(index)}
+                      onDragStart={() => setDragIndex(index)}
+                      onDragOver={(e) => { e.preventDefault(); setDropIndex(index); }}
+                      onDragLeave={() => setDropIndex(null)}
+                      onDrop={() => {
+                        const from = dragIndex();
+                        if (from === null || from === index) return;
+                        const q = [...playerStore.queue];
+                        const [moved] = q.splice(from, 1);
+                        const to = from < index ? index - 1 : index;
+                        q.splice(to, 0, moved);
+                        setPlayerStore("queue", q);
+                        setPlayerStore("queueIndex", playerStore.queueIndex === from ? to : playerStore.queueIndex > from && playerStore.queueIndex <= to ? playerStore.queueIndex - 1 : playerStore.queueIndex < from && playerStore.queueIndex >= to ? playerStore.queueIndex + 1 : playerStore.queueIndex);
+                        savePlayerState();
+                        setDragIndex(null);
+                        setDropIndex(null);
+                      }}
+                      onDragEnd={() => { setDragIndex(null); setDropIndex(null); }}
+                      class="flex items-center px-4 py-2.5 cursor-pointer transition-colors group hover:bg-white hover:bg-opacity-5"
+                      style={{
+                        background: playing ? "rgba(var(--accent-rgb), 0.1)" : undefined,
+                        "border-left": playing ? "3px solid var(--accent-light)" : "3px solid transparent",
+                        "border-top": isDragTarget && dragIndex() !== index ? "2px solid var(--accent-light)" : "2px solid transparent",
+                      }}
                     >
-                      {song.title}
-                    </div>
-                    <div class="text-[11px] truncate" style="color: rgba(255,255,255,0.65);">{song.artist}</div>
-                  </div>
-                  <div class="flex items-center gap-1.5 flex-shrink-0 ml-2">
-                    {song.hasLyrics && (
-                      <span class="text-[10px]" style="color: rgba(52,211,153,0.4);">🎤</span>
-                    )}
-                    {(getDuration(song.id, song.duration)) && (
-                      <span class="text-[11px] font-mono" style="color: rgba(255,255,255,0.65);">{getDuration(song.id, song.duration)}</span>
-                    )}
-                    {playing && (
-                      <div class="flex items-end gap-[2px] h-[16px]">
-                        <div class="w-[3px] rounded-[1.5px] h-[16px] bar-animate bar-d0" style={{ background: "var(--accent-gradient)", "transform-origin": "bottom" }} />
-                        <div class="w-[3px] rounded-[1.5px] h-[16px] bar-animate bar-d1" style={{ background: "var(--accent-gradient)", "transform-origin": "bottom" }} />
-                        <div class="w-[3px] rounded-[1.5px] h-[16px] bar-animate bar-d2" style={{ background: "var(--accent-gradient)", "transform-origin": "bottom" }} />
-                        <div class="w-[3px] rounded-[1.5px] h-[16px] bar-animate bar-d3" style={{ background: "var(--accent-gradient)", "transform-origin": "bottom" }} />
+                      <QueueCover id={song.id} playing={playing} />
+                      <div class="flex-1 min-w-0">
+                        <div
+                          class="text-xs truncate"
+                          style={{ color: playing ? "#ffffff" : "rgba(255,255,255,0.85)" }}
+                        >
+                          {song.title}
+                        </div>
+                        <div class="text-[11px] truncate" style="color: rgba(255,255,255,0.65);">{song.artist}</div>
                       </div>
-                    )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); executeCommand("removeFromQueue", index); }}
-                      class="text-[11px] opacity-0 group-hover:opacity-100 transition-opacity"
-                      style="color: rgba(255,255,255,0.65);"
-                    >✕</button>
-                  </div>
-                </div>
-              );
-            })}
+                      <div class="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                        {song.hasLyrics && <span class="text-[10px]" style="color: rgba(52,211,153,0.4);">🎤</span>}
+                        {(getDuration(song.id, song.duration)) && (
+                          <span class="text-[11px] font-mono" style="color: rgba(255,255,255,0.65);">{getDuration(song.id, song.duration)}</span>
+                        )}
+                        {playing && (
+                          <div class="flex items-end gap-[2px] h-[16px]">
+                            <div class="w-[3px] rounded-[1.5px] h-[16px] bar-animate bar-d0" style={{ background: "var(--accent-gradient)", "transform-origin": "bottom" }} />
+                            <div class="w-[3px] rounded-[1.5px] h-[16px] bar-animate bar-d1" style={{ background: "var(--accent-gradient)", "transform-origin": "bottom" }} />
+                            <div class="w-[3px] rounded-[1.5px] h-[16px] bar-animate bar-d2" style={{ background: "var(--accent-gradient)", "transform-origin": "bottom" }} />
+                            <div class="w-[3px] rounded-[1.5px] h-[16px] bar-animate bar-d3" style={{ background: "var(--accent-gradient)", "transform-origin": "bottom" }} />
+                          </div>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); executeCommand("removeFromQueue", index); }}
+                          class="text-[11px] opacity-0 group-hover:opacity-100 transition-opacity"
+                          style="color: rgba(255,255,255,0.65);"
+                        >✕</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div class="absolute right-0 top-0 w-px pointer-events-none" style={{ height: `${qClientH()}px`, opacity: qScrollH() > qClientH() ? 0.4 : 0 }}>
+              <div class="w-px rounded-full" style={{ height: `${qThumbSize()}px`, transform: `translateY(${qThumbOff()}px)`, background: "rgba(255,255,255,0.15)" }} />
+            </div>
           </div>
 
           <div class="px-4 py-2.5 flex justify-between text-[11px] border-t" style="color: rgba(255,255,255,0.65); border-color: rgba(255,255,255,0.06);">
