@@ -39,11 +39,12 @@ const BatchBar: Component<BatchBarProps> = (p) => {
                 <>
                   <div class="fixed inset-0 z-10" onClick={() => p.onToggleAddOpen()} />
                   <div
-                    class="absolute right-0 top-full mt-1 z-20 rounded-lg py-1 min-w-[120px] max-h-48 overflow-y-auto"
+                    class="absolute right-0 z-20 rounded-lg py-1 min-w-[120px] max-h-48 overflow-y-auto"
                     style={{
-                      background: "rgba(15,15,20,0.95)",
+                      background: "rgba(15,15,22,0.85)",
                       border: "1px solid rgba(255,255,255,0.08)",
-                      "backdrop-filter": "blur(16px)",
+                      "backdrop-filter": "blur(20px)",
+                      bottom: "calc(100% + 30px)",
                     }}
                   >
                     {p.userPlaylists.length > 0 ? p.userPlaylists.map((pl) => (
