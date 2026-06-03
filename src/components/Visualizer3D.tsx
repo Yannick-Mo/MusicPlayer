@@ -91,6 +91,7 @@ const Visualizer3D: Component<Visualizer3DProps> = (props) => {
   }
 
   function animate() {
+    rafId = requestAnimationFrame(animate);
     if (!props.active) return;
 
     const raw = props.audioEngine.getAnalyserData();
@@ -126,12 +127,6 @@ const Visualizer3D: Component<Visualizer3DProps> = (props) => {
     points.rotation.y = rotationAngle;
 
     renderer.render(scene, camera);
-    rafId = requestAnimationFrame(animate);
-  }
-
-  function startAnimation() {
-    if (rafId !== null) cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(animate);
   }
 
   onMount(() => {
@@ -153,7 +148,7 @@ const Visualizer3D: Component<Visualizer3DProps> = (props) => {
   });
 
   createEffect(() => {
-    if (props.active) startAnimation();
+    if (props.active) resize();
   });
 
   return <div ref={containerRef} class="absolute inset-0 w-full h-full pointer-events-none" style={{ display: props.active ? "" : "none" }} />;
