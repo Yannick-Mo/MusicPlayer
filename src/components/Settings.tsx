@@ -1,5 +1,5 @@
 import { createSignal, onMount, onCleanup, type Component } from "solid-js";
-import { playerStore, setPlayerStore } from "../store/playerStore";
+import { playerStore, setPlayerStore, savePlayerState } from "../store/playerStore";
 import { getPlatform } from "../platform/index";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -55,6 +55,7 @@ const Settings: Component = () => {
   );
 
   const [libraryPath, setLibraryPath] = createSignal("");
+  const [oldLibPath, setOldLibPath] = createSignal("");
   const [migrationProgress, setMigrationProgress] = createSignal<MigrationProgress | null>(null);
 
   // Load initial path
@@ -68,9 +69,20 @@ const Settings: Component = () => {
       const p = event.payload;
       setMigrationProgress(p);
       if (p.phase === "completed") {
-        // Update to new path and reload library data immediately
         getPlatform().then(platform => {
-          platform.getLibraryPath().then(setLibraryPath).catch(() => {});
+          platform.getLibraryPath().then(newPath => {
+            setLibraryPath(newPath);
+            // Reconstruct background image path for new library location
+            if (playerStore.backgroundImage && oldLibPath()) {
+              const oldPath = oldLibPath().replace(/[/\\]$/, '');
+              const newBase = newPath.replace(/[/\\]$/, '');
+              const newBg = playerStore.backgroundImage.replace(oldPath, newBase);
+              if (newBg !== playerStore.backgroundImage) {
+                setPlayerStore("backgroundImage", newBg);
+                savePlayerState();
+              }
+            }
+          });
         });
         refreshLibraryData();
       } else if (p.phase === "error" || p.phase === "cancelled") {
@@ -350,6 +362,8 @@ const Settings: Component = () => {
                         directory: true,
                       });
                       if (selected && typeof selected === "string") {
+                        setOldLibPath(libraryPath());
+                        savePlayerState();
                         const platform = await getPlatform();
                         await platform.startMigration(selected);
                       }
