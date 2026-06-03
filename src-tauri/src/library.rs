@@ -120,15 +120,6 @@ impl Library {
         }
     }
 
-    pub fn has_lyrics(&self, song_filename: &str) -> bool {
-        let stem = PathBuf::from(song_filename)
-            .file_stem()
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_default();
-        let lrc_path = self.lyrics_dir().join(format!("{}.lrc", stem));
-        lrc_path.exists()
-    }
-
     fn import_lyrics_from_source(&self, src: &Path, stem: &str) -> bool {
         let parent = src.parent().unwrap_or(Path::new(""));
         let candidates = [

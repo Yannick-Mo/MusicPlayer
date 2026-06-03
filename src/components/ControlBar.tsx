@@ -177,13 +177,17 @@ const ControlBar: Component<ControlBarProps> = (props) => {
           <button onClick={cycleMode} class="text-[21px] px-2 transition-colors" style="color: rgba(255,255,255,0.6);">
             <ModeIcon />
           </button>
-          <div class="w-9 h-9 rounded flex-shrink-0 overflow-hidden" style={coverUrl() ? {} : { background: "var(--accent-gradient)" }}>
-            {coverUrl() ? <img src={coverUrl()!} class="w-full h-full object-cover" alt="" /> : null}
-          </div>
-          <div class="min-w-0">
-            <div class="text-xs font-medium truncate" style="color: rgba(255,255,255,0.85);">{playerStore.currentSongTitle}</div>
-            <div class="text-[10px] truncate" style="color: rgba(255,255,255,0.4);">{playerStore.currentSongArtist}</div>
-          </div>
+          {playerStore.currentSongId !== null ? (
+            <>
+              <div class="w-9 h-9 rounded flex-shrink-0 overflow-hidden" style={coverUrl() ? {} : { background: "var(--accent-gradient)" }}>
+                {coverUrl() ? <img src={coverUrl()!} class="w-full h-full object-cover" alt="" /> : null}
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-medium truncate" style="color: rgba(255,255,255,0.85);">{playerStore.currentSongTitle}</div>
+                <div class="text-[10px] truncate" style="color: rgba(255,255,255,0.4);">{playerStore.currentSongArtist}</div>
+              </div>
+            </>
+          ) : null}
         </div>
 
         <div class="flex items-center gap-5">

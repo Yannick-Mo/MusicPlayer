@@ -53,7 +53,10 @@ const App: Component = () => {
   const lsync = new LyricsSync();
   const vdata = new VisualizerData();
 
+  let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+
   async function loadSong(songId: number, title: string, artist: string): Promise<boolean> {
+    if (retryTimeout) { clearTimeout(retryTimeout); retryTimeout = null; }
     try {
       const platform = await getPlatform();
       const path = await platform.getSongPath(songId);
@@ -79,12 +82,17 @@ const App: Component = () => {
     } catch (err) {
       console.error("Failed to load song:", err);
       engine.reset();
-      setPlayerStore("error", "歌曲已损坏");
+      lsync.clear();
+      setPlayerStore("syncState", { currentLine: null, currentLineIndex: -1, currentWordIndex: -1, wordProgress: 0, lines: [], hasLyrics: false });
+      setPlayerStore("currentTime", 0);
+      setPlayerStore("duration", 0);
+      setErrorAutoClear("歌曲已损坏");
       setPlayerStore("currentSongId", songId);
       setPlayerStore("currentSongTitle", title);
       setPlayerStore("currentSongArtist", artist);
       setPlayerStore("playing", false);
       engine.pause();
+      retryTimeout = setTimeout(() => playNext(), 3000);
       return false;
     }
   }
@@ -98,12 +106,10 @@ const App: Component = () => {
     const cur = playerStore.queueIndex;
     if (cur >= 0 && cur < q.length) {
       addToPlayNext(item);
-      showToast(`已添加到下一首播放`);
       return cur + 1;
     }
     const newIdx = q.length;
     addToQueue(item);
-    showToast(`已添加到播放队列`);
     return newIdx;
   }
 
@@ -180,7 +186,7 @@ const App: Component = () => {
 
   async function requestPlay() {
     if (playerStore.queue.length === 0) {
-      setPlayerStore("error", "播放队列为空");
+      setErrorAutoClear("播放队列为空");
       return;
     }
     if (playerStore.playing) {
@@ -225,11 +231,21 @@ const App: Component = () => {
     setPlayerStore("currentSongId", null);
     setPlayerStore("currentSongTitle", "");
     setPlayerStore("currentSongArtist", "");
-    setPlayerStore("error", "播放队列为空");
+    lsync.clear();
+    setPlayerStore("syncState", { currentLine: null, currentLineIndex: -1, currentWordIndex: -1, wordProgress: 0, lines: [], hasLyrics: false });
     engine.pause();
     savePlayerState();
-    showToast("播放队列已清空");
   });
+
+  let errorTimeout: ReturnType<typeof setTimeout> | null = null;
+  function setErrorAutoClear(msg: string) {
+    if (errorTimeout) clearTimeout(errorTimeout);
+    setPlayerStore("error", msg);
+    errorTimeout = setTimeout(() => {
+      setPlayerStore("error", null);
+      errorTimeout = null;
+    }, 1000);
+  }
 
   const appWindow = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window ? getCurrentWindow() : null;
 
@@ -302,7 +318,6 @@ const App: Component = () => {
         }
       } else {
         setPlayerStore("queueIndex", -1);
-        setPlayerStore("error", "播放队列为空");
         savePlayerState();
       }
     } else {
@@ -311,7 +326,6 @@ const App: Component = () => {
         setPlayerStore("queueIndex", newIndex);
       } else {
         setPlayerStore("queueIndex", -1);
-        setPlayerStore("error", "播放队列为空");
       }
       savePlayerState();
     }
@@ -338,9 +352,6 @@ const App: Component = () => {
     engine.on("onEnded", () => playNext());
     engine.setVolume(playerStore.volume);
 
-    if (playerStore.queue.length === 0) {
-      setPlayerStore("error", "播放队列为空");
-    }
     if (playerStore.volume !== undefined) {
       engine.setVolume(playerStore.volume);
     }
