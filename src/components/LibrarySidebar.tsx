@@ -149,9 +149,8 @@ const LibrarySidebar: Component = () => {
           style={{
             left: `${ctxMenu()!.x}px`,
             top: `${ctxMenu()!.y}px`,
-            background: "rgba(15,15,20,0.95)",
+            background: "rgba(15,15,22,0.3)",
             border: "1px solid rgba(255,255,255,0.08)",
-            "backdrop-filter": "blur(16px)",
           }}
           onClick={(e) => e.stopPropagation()}
         >
