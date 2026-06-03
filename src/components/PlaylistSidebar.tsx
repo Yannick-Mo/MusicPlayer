@@ -139,7 +139,8 @@ const PlaylistSidebar: Component<PlaylistSidebarProps> = (props) => {
             </div>
           </div>
 
-          <div class="flex-1 overflow-y-auto py-1">
+          <style>{`.queue-scroll{overflow-y:auto}.queue-scroll::-webkit-scrollbar{width:2px}.queue-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:1px}.queue-scroll{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.12) transparent}`}</style>
+          <div class="flex-1 overflow-y-auto py-1 queue-scroll">
             {filteredSongs().map(({ song, index }) => {
               const playing = index === playerStore.queueIndex;
               const isDragTarget = dropIndex() === index;
