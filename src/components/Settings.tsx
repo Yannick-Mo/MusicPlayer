@@ -364,6 +364,8 @@ const Settings: Component = () => {
                       if (selected && typeof selected === "string") {
                         setOldLibPath(libraryPath());
                         savePlayerState();
+                        const { emit } = await import("@tauri-apps/api/event");
+                        await emit("migration-started", {});
                         const platform = await getPlatform();
                         await platform.startMigration(selected);
                       }

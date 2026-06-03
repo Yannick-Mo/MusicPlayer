@@ -377,8 +377,14 @@ const App: Component = () => {
       savePlayerState();
     });
 
+    const unlistenMigration = await listen("migration-started", () => {
+      engine.pause();
+      savePlayerState();
+    });
+
     onCleanup(() => {
       unlistenSaveState();
+      unlistenMigration();
     });
 
     onCleanup(() => {
