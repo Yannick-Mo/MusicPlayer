@@ -2,11 +2,20 @@
 
 基于 Tauri 2.0 + Solid.js + TypeScript + Tailwind CSS 的音乐播放器。
 
-<p align="center">
-  <a href="EffectDemonstration/test.mp4">
-    <img src="EffectDemonstration/thumbnail.png" alt="效果演示" width="800">
-  </a>
-</p>
+
+<div align="center">
+  <h3>效果图</h3>
+  <table>
+    <tr>
+      <td><img src="EffectDemonstration/1.png" alt="效果图1" width="400"></td>
+      <td><img src="EffectDemonstration/2.png" alt="效果图2" width="400"></td>
+    </tr>
+    <tr>
+      <td><img src="EffectDemonstration/3.png" alt="效果图3" width="400"></td>
+      <td><img src="EffectDemonstration/4.png" alt="效果图4" width="400"></td>
+    </tr>
+  </table>
+</div>
 
 ## 功能
 
