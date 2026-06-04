@@ -3,7 +3,9 @@
 基于 Tauri 2.0 + Solid.js + TypeScript + Tailwind CSS 的音乐播放器。
 
 <p align="center">
-  <video src="https://raw.githubusercontent.com/Yannick-Mo/MediaPlayer/main/EffectDemonstration/test.mp4" controls width="800"></video>
+  <a href="EffectDemonstration/test.mp4">
+    <img src="EffectDemonstration/thumbnail.png" alt="效果演示" width="800">
+  </a>
 </p>
 
 ## 功能
