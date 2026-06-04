@@ -2,6 +2,10 @@
 
 基于 Tauri 2.0 + Solid.js + TypeScript + Tailwind CSS 的音乐播放器。
 
+<p align="center">
+  <video src="./EffectDemonstration/test.mp4" controls width="800"></video>
+</p>
+
 ## 功能
 
 - 音频播放（MP3, FLAC, WAV, AAC, OGG, M4A）
