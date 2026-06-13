@@ -19,6 +19,7 @@ export class AudioEngine {
   };
   private rafId: number | null = null;
   private _volume: number = 65;
+  private _muted: boolean = false;
 
   on<E extends keyof AudioEngineEvents>(event: E, handler: AudioEngineEvents[E]): void {
     this.events[event] = handler;
@@ -61,6 +62,11 @@ export class AudioEngine {
     this.sourceNode.connect(this.analyserNode);
     this.analyserNode.connect(this.gainNode);
     this.gainNode.connect(this.audioContext.destination);
+
+    this.setVolume(this._volume);
+    if (this._muted) {
+      this.gainNode.gain.value = 0;
+    }
 
     setTimeout(() => {
       if (this.audioElement && this.audioElement.duration > 0) {
@@ -109,6 +115,7 @@ export class AudioEngine {
   }
 
   setMuted(muted: boolean): void {
+    this._muted = muted;
     if (!this.gainNode) return;
     this.gainNode.gain.value = muted ? 0 : Math.max(0, Math.min(1, this._volume / 100));
   }

@@ -352,6 +352,7 @@ const App: Component = () => {
     });
     engine.on("onEnded", () => playNext());
     engine.setVolume(playerStore.volume);
+    engine.setMuted(playerStore.muted);
 
     if (playerStore.volume !== undefined) {
       engine.setVolume(playerStore.volume);
