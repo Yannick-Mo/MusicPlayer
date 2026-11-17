@@ -1,12 +1,12 @@
 import { onMount, onCleanup, type Component } from "solid-js";
 import { World } from "../visualizers/xk/world";
 import { AudioEngine } from "../core/audioEngine";
-import type { Visualizer3DStyle } from "../core/visualizerStyles";
+import type { XkVisualizerStyle } from "../core/visualizerStyles";
 
 interface XkVisualizerProps {
   active: boolean;
   audioEngine: AudioEngine;
-  style: Exclude<Visualizer3DStyle, "galaxy">;
+  style: XkVisualizerStyle;
 }
 
 const XkVisualizer: Component<XkVisualizerProps> = (props) => {
@@ -47,7 +47,7 @@ const XkVisualizer: Component<XkVisualizerProps> = (props) => {
       if (bass > bassAvg * 1.26 + 0.03 && elapsed - lastBeat > 0.2) {
         lastBeat = elapsed;
         beatPulse = 1;
-        if (props.style === "cosmos" || props.style === "voyage" || props.style === "asteroids") {
+        if (props.style === "cosmos" || props.style === "voyage") {
           const xk = world as unknown as { warpSurge: number };
           xk.warpSurge = Math.max(xk.warpSurge, 0.16 + bass * 0.18);
         }

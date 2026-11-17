@@ -328,7 +328,7 @@ const Settings: Component = () => {
                     {VISUALIZER_3D_STYLES.find((s) => s.id === playerStore.visualizer3dStyle)?.name ?? ""}
                   </div>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
                   {VISUALIZER_3D_STYLES.map((style) => {
                     const selected = playerStore.visualizer3dStyle === style.id;
                     return (

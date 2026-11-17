@@ -8,16 +8,13 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass';
 import {
   CINEMATIC_SHADER, PALETTE, clamp, damp, makeFlareTexture, makeGlowTexture, makeStreakTexture, rand,
 } from './gfx-utils';
-import { LightRibbons, Nebula, Starfield, WarpStreaks } from './starscape';
+import { Nebula, Starfield, WarpStreaks } from './starscape';
 import { Asteroids } from './asteroids';
 import { CometSystem, MeteorSystem, ParticleField, Shockwaves } from './effects';
 
 const STYLE_CONFIGS = {
-  cosmos: { nebula: true, stars: true, warp: true, ribbons: true, asteroids: true, particles: true, shockwaves: true, comets: true, meteors: true, sun: true },
-  voyage: { nebula: true, stars: true, warp: true, ribbons: true, asteroids: false, particles: true, shockwaves: true, comets: true, meteors: true, sun: true },
-  ribbons: { nebula: true, stars: true, warp: false, ribbons: true, asteroids: false, particles: true, shockwaves: false, comets: false, meteors: false, sun: true },
-  asteroids: { nebula: true, stars: true, warp: false, ribbons: false, asteroids: true, particles: true, shockwaves: true, comets: true, meteors: true, sun: false },
-  nebula: { nebula: true, stars: true, warp: false, ribbons: false, asteroids: false, particles: false, shockwaves: false, comets: false, meteors: false, sun: true },
+  cosmos: { nebula: true, stars: true, warp: true, asteroids: true, particles: true, shockwaves: true, comets: true, meteors: true },
+  voyage: { nebula: true, stars: true, warp: true, asteroids: false, particles: true, shockwaves: true, comets: true, meteors: true },
 };
 
 export class World {
@@ -73,66 +70,14 @@ export class World {
     this.nebula = config.nebula ? new Nebula(this.scene, this.width / this.height) : null;
     this.stars = config.stars ? new Starfield(this.scene, this.isPortrait ? 9000 : 15000, this.pixelRatio) : null;
     this.warp = config.warp ? new WarpStreaks(this.scene, this.isPortrait ? 500 : 900) : null;
-    this.ribbons = config.ribbons
-      ? new LightRibbons(this.scene, this.isPortrait ? 6 : (this.style === 'ribbons' ? 10 : 7), this.isPortrait ? 110 : 150)
-      : null;
-    if (this.ribbons && this.style === 'ribbons') {
-      for (const ribbon of this.ribbons.items) ribbon.width *= 2.4;
-    }
     this.asteroids = config.asteroids ? new Asteroids(this.scene) : null;
     this.particles = config.particles ? new ParticleField(this.scene, this.isPortrait ? 8000 : 14000, this.pixelRatio) : null;
     this.shockwaves = config.shockwaves ? new Shockwaves(this.scene, this.camera) : null;
     this.comets = config.comets && this.particles ? new CometSystem(this.scene, this.camera, this.particles, this.assets) : null;
     this.meteors = config.meteors && this.particles ? new MeteorSystem(this.scene, this.camera, this.particles, this.assets) : null;
-    this.sun = null;
-    if (config.sun) this.createSun();
     this.setupPost();
     this.resize();
     this.bindEvents();
-  }
-
-  createSun() {
-    const glowMat = new THREE.SpriteMaterial({
-      map: this.assets.glow,
-      color: new THREE.Color(0.42, 0.8, 1.0),
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      opacity: 0.3,
-    });
-    const glow = new THREE.Sprite(glowMat);
-    glow.position.set(-150, 70, -310);
-    glow.scale.setScalar(210);
-    this.scene.add(glow);
-
-    const coreMat = new THREE.SpriteMaterial({
-      map: this.assets.flare,
-      color: new THREE.Color(0.82, 0.97, 1.0),
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      opacity: 0.6,
-    });
-    const core = new THREE.Sprite(coreMat);
-    core.position.copy(glow.position);
-    core.scale.set(72, 72, 1);
-    this.scene.add(core);
-
-    const streakMat = new THREE.SpriteMaterial({
-      map: this.assets.streak,
-      color: new THREE.Color(0.4, 0.75, 1.0),
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      opacity: 0.22,
-      rotation: 0.12,
-    });
-    const streak = new THREE.Sprite(streakMat);
-    streak.position.set(-150, 70, -312);
-    streak.scale.set(360, 10, 1);
-    this.scene.add(streak);
-
-    this.sun = { glow, core, streak };
   }
 
   setupPost() {
@@ -290,11 +235,9 @@ export class World {
 
     this.updateCamera(dt, time, frame);
     const warpIntensity = this.style === 'voyage' || this.style === 'cosmos' ? Math.max(intensity, 0.45) : intensity;
-    const ribbonIntensity = this.style === 'ribbons' ? Math.max(intensity, 0.55) : intensity;
     if (this.nebula) this.nebula.update(time, intensity, this.camera.aspect);
     if (this.stars) this.stars.update(this.travel, time, this.pixelRatio);
     if (this.warp) this.warp.update(this.paused ? dt * 0.2 : dt, time, warpIntensity, this.warpSurge);
-    if (this.ribbons) this.ribbons.update(time, ribbonIntensity, this.warpSurge);
     if (this.asteroids) this.asteroids.update(time, this.paused ? 0 : dt);
     if (this.particles) this.particles.update(this.paused ? dt * 0.3 : dt);
     if (this.shockwaves) this.shockwaves.update(this.paused ? dt * 0.3 : dt, this.camera);
@@ -302,14 +245,6 @@ export class World {
     if (this.meteors) this.meteors.update(this.paused ? dt * 0.3 : dt);
 
     const pulse = frame.beatPulse || 0;
-    if (this.sun) {
-      const sunPulse = 1 + pulse * 0.06 + Math.sin(time * 0.3) * 0.025;
-      this.sun.glow.scale.setScalar(210 * sunPulse);
-      this.sun.core.scale.setScalar(72 * sunPulse);
-      this.sun.glow.material.opacity = 0.24 + intensity * 0.16 + pulse * 0.04;
-      this.sun.core.material.opacity = 0.45 + intensity * 0.24 + pulse * 0.05;
-      this.sun.streak.material.opacity = 0.13 + intensity * 0.16;
-    }
 
     if (!this.paused) this.scheduleEvents(dt, intensity);
 

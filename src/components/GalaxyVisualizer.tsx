@@ -24,6 +24,7 @@ const galaxyVertexShader = `
   uniform float uSize;
   uniform float uPixelRatio;
   uniform float uBass;
+  uniform float uBeat;
   uniform float uRadius;
   uniform vec3 uColorInner;
   uniform vec3 uColorMid;
@@ -40,29 +41,36 @@ const galaxyVertexShader = `
     vec3 pos = position;
 
     float dist = max(length(pos.xz), 0.0001);
+    float t = clamp(aRadius / uRadius, 0.0, 1.0);
+    float seedPhase = aSeed * 6.2831853;
+
     float angle = atan(pos.x, pos.z);
-    angle += uTime * (0.6 / (dist * 1.5 + 1.2));
+    angle += uTime * (0.24 + uBass * 0.22 + uBeat * 0.06);
+    angle += sin(uTime * 0.5 - dist * 0.45 + seedPhase) * 0.05 * (1.0 + uBass * 1.2);
     pos.x = sin(angle) * dist;
     pos.z = cos(angle) * dist;
 
-    pos.y += sin(uTime * 0.75 + aSeed * 6.2831853) * 0.12;
+    float ripple = sin(uTime * 1.3 - dist * 0.8 + seedPhase);
+    pos.xz *= 1.0 + ripple * (0.012 + uBass * 0.06 + uBeat * 0.02);
+
+    pos.y += sin(uTime * 0.9 + seedPhase + dist * 0.6) * (0.12 + uBass * 0.3);
     pos.y *= 1.0 + uBass * 0.45;
 
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
 
-    float twinkle = 0.8 + 0.25 * sin(uTime * 1.6 + aSeed * 47.0);
+    float twinkle = 0.72 + 0.35 * sin(uTime * 2.0 + aSeed * 47.0);
     gl_PointSize = uSize * aScale * twinkle * (1.0 + uBass * 0.4) * uPixelRatio * (26.0 / max(1.0, -mvPosition.z));
-    gl_PointSize *= mix(0.5, 1.0, smoothstep(0.0, 0.35, clamp(aRadius / uRadius, 0.0, 1.0)));
+    gl_PointSize *= mix(0.5, 1.0, smoothstep(0.0, 0.35, t));
     gl_PointSize = clamp(gl_PointSize, 0.8, 16.0);
 
-    float t = clamp(aRadius / uRadius, 0.0, 1.0);
     vec3 col = mix(uColorInner, uColorMid, smoothstep(0.0, 0.55, t));
     col = mix(col, uColorOuter, smoothstep(0.55, 1.0, t));
     col *= 0.68 * (0.55 + 0.35 * aScale) * mix(0.45, 1.0, smoothstep(0.0, 0.3, t));
+    col *= 0.92 + ripple * 0.12 * (0.6 + uBass * 0.8);
 
     vColor = col;
-    vAlpha = (1.0 - smoothstep(0.8, 1.0, t) * 0.55) * 0.82;
+    vAlpha = (1.0 - smoothstep(0.8, 1.0, t) * 0.55) * (0.82 + 0.14 * sin(uTime * 1.5 + seedPhase * 5.0));
   }
 `;
 
@@ -141,6 +149,9 @@ const GalaxyVisualizer: Component<GalaxyVisualizerProps> = (props) => {
   let startTime = 0;
   let prevTime = 0;
   let bass = 0;
+  let lowAvg = 0;
+  let beatPulse = 0;
+  let lastBeat = 0;
   const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
 
   function buildGalaxy() {
@@ -188,6 +199,7 @@ const GalaxyVisualizer: Component<GalaxyVisualizerProps> = (props) => {
         uSize: { value: 1.9 },
         uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
         uBass: { value: 0 },
+        uBeat: { value: 0 },
         uRadius: { value: GALAXY_RADIUS },
         uColorInner: { value: new THREE.Color("#d8ecff") },
         uColorMid: { value: new THREE.Color("#5aa7ff") },
@@ -367,28 +379,38 @@ const GalaxyVisualizer: Component<GalaxyVisualizerProps> = (props) => {
       let low = 0;
       for (let i = 1; i <= 8; i++) low += raw[i];
       target = Math.min(1, low / (8 * 160));
+      lowAvg += (target - lowAvg) * Math.min(1, dt * 2);
+      if (target > lowAvg * 1.25 + 0.03 && elapsed - lastBeat > 0.22) {
+        lastBeat = elapsed;
+        beatPulse = 1;
+      }
+    } else {
+      const phase = (elapsed % 2.1) / 2.1;
+      beatPulse = Math.max(beatPulse * 0.95, Math.pow(1 - phase, 5) * 0.32);
     }
+    beatPulse *= Math.exp(-dt * 3.6);
     bass += (target - bass) * Math.min(1, dt * 4);
 
     galaxyMaterial.uniforms.uTime.value = elapsed;
     galaxyMaterial.uniforms.uBass.value = bass;
-    bloomPass.strength = 0.24 + bass * 0.12;
+    galaxyMaterial.uniforms.uBeat.value = beatPulse;
+    bloomPass.strength = 0.24 + bass * 0.12 + beatPulse * 0.03;
 
-    const pulse = 1 + bass * 0.3;
+    const pulse = 1 + bass * 0.3 + beatPulse * 0.12;
     coreGlow.scale.set(2.0 * pulse, 2.0 * pulse, 1);
-    (coreGlow.material as THREE.SpriteMaterial).opacity = 0.1 + bass * 0.1;
+    (coreGlow.material as THREE.SpriteMaterial).opacity = 0.1 + bass * 0.1 + beatPulse * 0.04;
     coreGlow.position.y = Math.sin(elapsed * 0.5) * 0.08;
 
-    hazeGroup.rotation.y = elapsed * 0.015;
-    starField.rotation.y = elapsed * 0.004;
+    hazeGroup.rotation.y = elapsed * 0.2;
+    starField.rotation.y = elapsed * 0.012;
 
     pointer.x += (pointer.tx - pointer.x) * 0.03;
     pointer.y += (pointer.ty - pointer.y) * 0.03;
 
-    camera.position.x = Math.sin(elapsed * 0.07) * 0.9 + pointer.x * 1.4;
-    camera.position.y = 8.5 + Math.sin(elapsed * 0.11) * 0.5 - pointer.y * 0.8;
-    camera.position.z = 16 + Math.cos(elapsed * 0.06) * 0.4;
-    camera.lookAt(pointer.x * 0.25, 0.2 + pointer.y * 0.18, 0);
+    camera.position.x = Math.sin(elapsed * 0.15) * 2.6 + pointer.x * 1.6;
+    camera.position.y = 8.2 + Math.sin(elapsed * 0.23) * 0.9 - pointer.y * 0.9;
+    camera.position.z = 15.5 + Math.cos(elapsed * 0.12) * 1.8 - beatPulse * 0.25;
+    camera.lookAt(pointer.x * 0.25, 0.2 + pointer.y * 0.18 + Math.sin(elapsed * 0.19) * 0.15, 0);
 
     composer.render();
   }

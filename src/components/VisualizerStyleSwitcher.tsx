@@ -22,8 +22,9 @@ const VisualizerStyleSwitcher: Component = () => {
             }}
           >
             <div class="text-[10px] px-2 py-1.5 tracking-widest" style="color: rgba(255,255,255,0.4);">
-              3D 场景
+              3D 场景 · {VISUALIZER_3D_STYLES.length}
             </div>
+            <div class="max-h-[52vh] overflow-y-auto pr-1">
             <For each={VISUALIZER_3D_STYLES}>
               {(style) => {
                 const selected = () => playerStore.visualizer3dStyle === style.id;
@@ -55,6 +56,7 @@ const VisualizerStyleSwitcher: Component = () => {
                 );
               }}
             </For>
+            </div>
           </div>
         )}
         <button
