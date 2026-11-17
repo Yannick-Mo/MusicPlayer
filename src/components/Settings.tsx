@@ -5,6 +5,8 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { refreshLibraryData } from "../store/libraryStore";
 import type { MigrationProgress } from "../platform/interface";
+import { VISUALIZER_3D_STYLES } from "../core/visualizerStyles";
+import { isTauri } from "../core/utils";
 
 type Tab = "playback" | "lyrics" | "visualizer" | "storage" | "about";
 
@@ -65,6 +67,7 @@ const Settings: Component = () => {
 
   // Listen for migration progress events
   onMount(() => {
+    if (!isTauri()) return;
     const unlistenPromise = listen<MigrationProgress>("migration-progress", (event) => {
       const p = event.payload;
       setMigrationProgress(p);
@@ -312,13 +315,54 @@ const Settings: Component = () => {
                       color: playerStore.visualizerMode === m ? "var(--accent-light)" : "rgba(255,255,255,0.7)",
                     }}
                   >
-                    {m === "2d" ? "2D 频谱" : m === "3d" ? "3D 粒子" : "关闭"}
+                    {m === "2d" ? "2D 频谱" : m === "3d" ? "3D 场景" : "关闭"}
                   </span>
                 ))}
               </div>
             </div>
+            {playerStore.visualizerMode === "3d" && (
+              <div class="py-3 border-b" style="border-color: rgba(255,255,255,0.04);">
+                <div class="flex items-center justify-between mb-3">
+                  <div><div class="text-sm" style="color: rgba(255,255,255,0.9);">3D 场景</div><div class="text-xs" style="color: rgba(255,255,255,0.65);">点击切换不同的动画风格</div></div>
+                  <div class="text-[11px]" style="color: rgba(255,255,255,0.4);">
+                    {VISUALIZER_3D_STYLES.find((s) => s.id === playerStore.visualizer3dStyle)?.name ?? ""}
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  {VISUALIZER_3D_STYLES.map((style) => {
+                    const selected = playerStore.visualizer3dStyle === style.id;
+                    return (
+                      <button
+                        onClick={() => setPlayerStore("visualizer3dStyle", style.id)}
+                        class="text-left p-3 rounded-lg transition-all"
+                        style={{
+                          background: selected ? "rgba(var(--accent-rgb), 0.12)" : "rgba(255,255,255,0.03)",
+                          border: selected ? "1px solid rgba(var(--accent-rgb), 0.45)" : "1px solid rgba(255,255,255,0.06)",
+                        }}
+                      >
+                        <div class="flex items-center gap-2">
+                          <span
+                            class="w-8 h-2 rounded-full shrink-0"
+                            style={{ background: `linear-gradient(90deg, ${style.swatch.join(", ")})` }}
+                          />
+                          <span
+                            class="text-xs"
+                            style={{ color: selected ? "var(--accent-light)" : "rgba(255,255,255,0.85)" }}
+                          >
+                            {style.name}
+                          </span>
+                        </div>
+                        <div class="text-[10px] mt-1.5 leading-relaxed" style="color: rgba(255,255,255,0.45);">
+                          {style.description}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div class="flex items-center justify-between py-3 border-b" style="border-color: rgba(255,255,255,0.04);">
-              <div><div class="text-sm" style="color: rgba(255,255,255,0.9);">频谱颜色</div><div class="text-xs" style="color: rgba(255,255,255,0.65);">2D 频谱条的颜色</div></div>
+              <div><div class="text-sm" style="color: rgba(255,255,255,0.9);">频谱颜色</div><div class="text-xs" style="color: rgba(255,255,255,0.65);">仅 2D 频谱与银河漩涡使用</div></div>
               <div class="flex items-center gap-2.5">
                 {["#6366f1", "#8b5cf6", "#ec4899", "#ef4444", "#f97316", "#22c55e", "#06b6d4", "#ffffff"].map((c) => (
                   <div

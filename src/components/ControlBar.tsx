@@ -2,6 +2,7 @@ import { createResource, createSignal, createMemo, createEffect, onCleanup, type
 import { AudioEngine } from "../core/audioEngine";
 import { playerStore, setPlayerStore } from "../store/playerStore";
 import { executeCommand } from "../core/commandBus";
+import { getVisualizer3DStyle } from "../core/visualizerStyles";
 import { getPlatform } from "../platform";
 import { convertFileSrc } from "@tauri-apps/api/core";
 
@@ -301,6 +302,7 @@ const ControlBar: Component<ControlBarProps> = (props) => {
           <button onClick={props.onTogglePlaylist} class="text-sm transition-colors" style="color: rgba(255,255,255,0.5);">📋</button>
           <button
             onClick={props.onToggleVisualizerMode}
+            title={props.visualizerMode === "3d" ? `3D 场景：${getVisualizer3DStyle(playerStore.visualizer3dStyle).name}（点击关闭）` : "切换可视化：2D / 3D / 关闭"}
             class="text-[10px] px-2 py-0.5 rounded transition-colors"
             style="color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.1);"
           >

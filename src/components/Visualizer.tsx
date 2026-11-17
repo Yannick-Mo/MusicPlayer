@@ -1,6 +1,7 @@
 import { onMount, onCleanup, type Component } from "solid-js";
 import { AudioEngine } from "../core/audioEngine";
 import { VisualizerData } from "../core/visualizerData";
+import type { Visualizer3DStyle } from "../core/visualizerStyles";
 import { hexToHsl } from "../core/utils";
 import Visualizer3D from "./Visualizer3D";
 
@@ -10,6 +11,7 @@ interface VisualizerProps {
   audioEngine: AudioEngine;
   mode: "2d" | "3d" | "off";
   color: string;
+  style: Visualizer3DStyle;
 }
 
 const Visualizer2D: Component<{ active: boolean; visualizerData: VisualizerData; audioEngine: AudioEngine; color: string }> = (props) => {
@@ -60,7 +62,7 @@ const Visualizer2D: Component<{ active: boolean; visualizerData: VisualizerData;
 const Visualizer: Component<VisualizerProps> = (props) => {
   return (
     <>
-      {props.mode === "3d" && <Visualizer3D active={props.active} audioEngine={props.audioEngine} visualizerData={props.visualizerData} />}
+      {props.mode === "3d" && <Visualizer3D active={props.active} audioEngine={props.audioEngine} color={props.color} style={props.style} />}
       {props.mode === "2d" && <Visualizer2D active={props.active} visualizerData={props.visualizerData} audioEngine={props.audioEngine} color={props.color} />}
     </>
   );

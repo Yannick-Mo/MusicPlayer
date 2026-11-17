@@ -1,6 +1,7 @@
 import { createStore } from "solid-js/store";
 import type { SyncState } from "../core/lyricsSync";
 import { formatTime } from "../core/utils";
+import { isVisualizer3DStyle, type Visualizer3DStyle } from "../core/visualizerStyles";
 
 export interface QueueItem {
   id: number;
@@ -26,6 +27,7 @@ export interface PlayerState {
   queueIndex: number;
   visualizerColor: string;
   visualizerMode: "2d" | "3d" | "off";
+  visualizer3dStyle: Visualizer3DStyle;
   fontSize: number;
   showTranslation: boolean;
   backgroundImage: string;
@@ -61,6 +63,7 @@ export function loadPlayerState(): boolean {
     if (typeof data.playMode === "string" && ["sequential", "repeat", "shuffle"].includes(data.playMode)) setPlayerStore("playMode", data.playMode as "sequential" | "repeat" | "shuffle");
     if (typeof data.visualizerColor === "string") setPlayerStore("visualizerColor", data.visualizerColor);
     if (typeof data.visualizerMode === "string" && ["2d", "3d", "off"].includes(data.visualizerMode)) setPlayerStore("visualizerMode", data.visualizerMode as "2d" | "3d" | "off");
+    if (isVisualizer3DStyle(data.visualizer3dStyle)) setPlayerStore("visualizer3dStyle", data.visualizer3dStyle);
     if (typeof data.fontSize === "number") setPlayerStore("fontSize", data.fontSize);
     if (typeof data.showTranslation === "boolean") setPlayerStore("showTranslation", data.showTranslation);
     if (typeof data.backgroundImage === "string") setPlayerStore("backgroundImage", data.backgroundImage);
@@ -92,6 +95,7 @@ export function savePlayerState() {
     playMode: playerStore.playMode,
     visualizerColor: playerStore.visualizerColor,
     visualizerMode: playerStore.visualizerMode,
+    visualizer3dStyle: playerStore.visualizer3dStyle,
     fontSize: playerStore.fontSize,
     showTranslation: playerStore.showTranslation,
     backgroundImage: playerStore.backgroundImage,
@@ -134,6 +138,7 @@ export const [playerStore, setPlayerStore] = createStore<PlayerState>({
   queueIndex: -1,
   visualizerColor: "#6366f1",
   visualizerMode: "2d",
+  visualizer3dStyle: "galaxy",
   fontSize: 15,
   showTranslation: true,
   backgroundImage: "",

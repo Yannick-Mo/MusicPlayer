@@ -1,5 +1,6 @@
 import { type Component } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isTauri } from "../core/utils";
 
 type View = "player" | "library" | "settings";
 
@@ -15,7 +16,7 @@ const TitleBar: Component<TitleBarProps> = (props) => {
     { id: "settings", label: "设置" },
   ];
 
-  const appWindow = getCurrentWindow();
+  const appWindow = isTauri() ? getCurrentWindow() : null;
 
   return (
     <div
@@ -48,21 +49,21 @@ const TitleBar: Component<TitleBarProps> = (props) => {
 
       <div class="flex gap-2" style="-webkit-app-region: no-drag;">
         <button
-          onClick={() => appWindow.minimize()}
+          onClick={() => appWindow?.minimize()}
           class="px-2 py-1 text-sm transition-colors rounded hover:bg-white/10"
           style="color: rgba(255,255,255,0.6);"
         >
           ━
         </button>
         <button
-          onClick={() => appWindow.toggleMaximize()}
+          onClick={() => appWindow?.toggleMaximize()}
           class="px-2 py-1 text-sm transition-colors rounded hover:bg-white/10"
           style="color: rgba(255,255,255,0.6);"
         >
           □
         </button>
         <button
-          onClick={() => appWindow.close()}
+          onClick={() => appWindow?.close()}
           class="px-2 py-1 text-sm transition-colors rounded hover:bg-red-500/20"
           style="color: rgba(255,255,255,0.65);"
         >

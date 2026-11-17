@@ -3,6 +3,7 @@ import TitleBar from "./TitleBar";
 import ControlBar from "./ControlBar";
 import LyricsPanel from "./LyricsPanel";
 import Visualizer from "./Visualizer";
+import VisualizerStyleSwitcher from "./VisualizerStyleSwitcher";
 import PlaylistSidebar from "./PlaylistSidebar";
 import MediaLibrary from "./MediaLibrary";
 import Settings from "./Settings";
@@ -23,6 +24,7 @@ import { useAccentColor } from "../hooks/useAccentColor";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useTrayEvents } from "../hooks/useTrayEvents";
 import { useSleepTimer } from "../hooks/useSleepTimer";
+import { isTauri } from "../core/utils";
 
 const ORIGINAL_MIN_W = 900;
 const ORIGINAL_MIN_H = 600;
@@ -40,7 +42,7 @@ const App: Component = () => {
       playerStore.backgroundImage, playerStore.backgroundOverlay,
       playerStore.lyricsOpacity, playerStore.lyricsBgColor,
       playerStore.fontSize, playerStore.showTranslation,
-      playerStore.visualizerColor, playerStore.visualizerMode,
+      playerStore.visualizerColor, playerStore.visualizerMode, playerStore.visualizer3dStyle,
       playerStore.resumePlayback,
       playerStore.lyricsActiveWordColor, playerStore.lyricsInactiveColor,
       playerStore.crossfade, playerStore.crossfadeDuration,
@@ -374,18 +376,23 @@ const App: Component = () => {
       }
     });
 
-    const unlistenSaveState = await listen("save-state", () => {
-      savePlayerState();
-    });
+    let unlistenSaveState: (() => void) | undefined;
+    let unlistenMigration: (() => void) | undefined;
 
-    const unlistenMigration = await listen("migration-started", () => {
-      engine.pause();
-      savePlayerState();
-    });
+    if (isTauri()) {
+      unlistenSaveState = await listen("save-state", () => {
+        savePlayerState();
+      });
+
+      unlistenMigration = await listen("migration-started", () => {
+        engine.pause();
+        savePlayerState();
+      });
+    }
 
     onCleanup(() => {
-      unlistenSaveState();
-      unlistenMigration();
+      unlistenSaveState?.();
+      unlistenMigration?.();
     });
 
     onCleanup(() => {
@@ -421,6 +428,7 @@ const App: Component = () => {
             audioEngine={engine}
             mode={playerStore.visualizerMode}
             color={playerStore.visualizerColor}
+            style={playerStore.visualizer3dStyle}
           />
           <TitleBar view={currentView()} onViewChange={setCurrentView} />
           <div class="flex-1 flex relative overflow-hidden" style="z-index: 1;">
@@ -445,6 +453,7 @@ const App: Component = () => {
                   bgColor={playerStore.lyricsBgColor}
                 />
               )}
+              {currentView() === "player" && playerStore.visualizerMode === "3d" && <VisualizerStyleSwitcher />}
               {currentView() === "library" && (
                 <MediaLibrary onPlay={(id, title, artist) => {
                   setCurrentView("player");

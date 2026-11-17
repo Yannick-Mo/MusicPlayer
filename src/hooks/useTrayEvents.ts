@@ -1,6 +1,7 @@
 import { onMount, onCleanup } from "solid-js";
 import { setPlayerStore, playerStore } from "../store/playerStore";
 import { listen } from "@tauri-apps/api/event";
+import { isTauri } from "../core/utils";
 
 export function useTrayEvents(
   requestPlay: () => void,
@@ -8,6 +9,7 @@ export function useTrayEvents(
   playPrev: () => void,
 ) {
   onMount(async () => {
+    if (!isTauri()) return;
     const unlistenPlayPause = await listen("tray-play-pause", () => requestPlay());
     const unlistenNext = await listen("tray-next", () => playNext());
     const unlistenPrev = await listen("tray-prev", () => playPrev());
